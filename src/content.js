@@ -1,6 +1,6 @@
 // SpeedyPlay content script.
 // Injects a speed-toggle button into the YouTube player and applies the saved
-// speed to new videos.
+// speed to new videos, both on watch pages and on Shorts.
 
 (() => {
   "use strict";
@@ -9,15 +9,25 @@
   const NORMAL_SPEED = 1.0;
   const DEFAULTS = { selectedSpeed: 2.0, autoApply: true };
 
+  // YouTube remembers its own playback rate and restores it while the player
+  // finishes initialising, which lands after our first attempt and overwrites
+  // it. So the speed is re-applied for a short while after each video starts,
+  // and left alone once that window closes.
+  const REASSERT_MS = 5000;
+
   const settings = { ...DEFAULTS };
 
   // Auto-apply waits for the stored settings, otherwise the first video of the
   // session would briefly get the default speed instead of the chosen one.
   let settingsLoaded = false;
 
-  // The video element YouTube reuses across navigations. Tracked so listeners
-  // are attached exactly once per element.
-  let watchedVideo = null;
+  // Shorts keeps several reels in the DOM at once, so more than one video may
+  // need listeners over the life of the page.
+  const watched = new WeakSet();
+  let currentVideo = null;
+  let reassertUntil = 0;
+
+  const formatRate = (rate) => `${Number(rate.toFixed(2))}×`;
 
   /* ------------------------------------------------------------------ *
    * Settings
@@ -29,6 +39,7 @@
         if (chrome.runtime.lastError) return;
         Object.assign(settings, stored);
         settingsLoaded = true;
+        beginReassert();
         syncButton();
         maybeAutoApply();
       });
@@ -52,9 +63,28 @@
    * Player access
    * ------------------------------------------------------------------ */
 
-  // YouTube keeps several <video> elements around (miniplayer, previews), so
-  // prefer the one inside the main player rather than the first on the page.
+  const onShorts = () => location.pathname.startsWith("/shorts/");
+
+  // Shorts stacks reels on top of each other. Rather than rely on YouTube's
+  // internal attribute names, pick the reel that is actually playing, falling
+  // back to whichever one is on screen.
+  function getShortsVideo() {
+    const videos = [...document.querySelectorAll("#shorts-player video, ytd-reel-video-renderer video")];
+    if (!videos.length) return null;
+    return (
+      videos.find((v) => !v.paused && !v.ended) ||
+      videos.find((v) => {
+        const box = v.getBoundingClientRect();
+        return box.height > 0 && box.top < window.innerHeight && box.bottom > 0;
+      }) ||
+      videos[0]
+    );
+  }
+
+  // On watch pages YouTube keeps other <video> elements around (miniplayer,
+  // hover previews), so prefer the one inside the main player.
   function getVideo() {
+    if (onShorts()) return getShortsVideo();
     return (
       document.querySelector("#movie_player video.html5-main-video") ||
       document.querySelector("video.html5-main-video") ||
@@ -68,6 +98,14 @@
     return !!player && player.classList.contains("ad-showing");
   }
 
+  /* ------------------------------------------------------------------ *
+   * Speed
+   * ------------------------------------------------------------------ */
+
+  function beginReassert() {
+    reassertUntil = Date.now() + REASSERT_MS;
+  }
+
   function setSpeed(video, rate) {
     if (!video) return;
     video.playbackRate = rate;
@@ -77,6 +115,9 @@
   function toggleSpeed() {
     const video = getVideo();
     if (!video || isAdShowing()) return;
+    // An explicit toggle wins: stop re-applying, or dropping back to 1x would
+    // immediately be undone.
+    reassertUntil = 0;
     const target = settings.selectedSpeed;
     setSpeed(video, video.playbackRate === target ? NORMAL_SPEED : target);
   }
@@ -94,43 +135,94 @@
    * Button
    * ------------------------------------------------------------------ */
 
-  function buildButton() {
+  const PLAYER_BUTTON_CSS =
+    "display:inline-flex;align-items:center;justify-content:center;" +
+    "width:48px;height:100%;padding:0;vertical-align:top;";
+
+  // Shorts has no control bar to slot into, so the button floats over the reel.
+  const FLOATING_BUTTON_CSS =
+    "position:absolute;top:12px;left:12px;z-index:60;" +
+    "display:inline-flex;align-items:center;justify-content:center;" +
+    "min-width:44px;height:32px;padding:0 10px;border:0;border-radius:16px;" +
+    "background:rgba(0,0,0,0.6);color:#fff;cursor:pointer;" +
+    "font:600 13px/1 Roboto,Arial,sans-serif;";
+
+  const CHEVRONS_SVG =
+    '<svg height="100%" viewBox="0 0 36 36" width="100%" style="pointer-events:none">' +
+    '<path class="ytp-svg-fill" d="M 11 24 L 19 18 L 11 12 Z M 19 24 L 27 18 L 19 12 Z"></path>' +
+    "</svg>";
+
+  function buildButton(floating) {
     const button = document.createElement("button");
     button.id = BUTTON_ID;
-    button.className = "ytp-button";
-    // Flexbox keeps the icon centred and the hover ring the same size as the
-    // neighbouring YouTube controls.
-    button.style.cssText =
-      "display:inline-flex;align-items:center;justify-content:center;" +
-      "width:48px;height:100%;padding:0;vertical-align:top;";
-    button.innerHTML =
-      '<svg height="100%" viewBox="0 0 36 36" width="100%" style="pointer-events:none">' +
-      '<path class="ytp-svg-fill" d="M 11 24 L 19 18 L 11 12 Z M 19 24 L 27 18 L 19 12 Z"></path>' +
-      "</svg>";
-    button.addEventListener("click", toggleSpeed);
+    button.dataset.variant = floating ? "floating" : "player";
+    if (floating) {
+      button.style.cssText = FLOATING_BUTTON_CSS;
+    } else {
+      // Flexbox keeps the icon centred and the hover ring the same size as the
+      // neighbouring YouTube controls.
+      button.className = "ytp-button";
+      button.style.cssText = PLAYER_BUTTON_CSS;
+      button.innerHTML = CHEVRONS_SVG;
+    }
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleSpeed();
+    });
     return button;
   }
 
-  // Reflects the current playback rate: red icon while sped up, plus a tooltip
-  // naming the speed the button will switch to.
+  // Reflects the real playback rate, whoever changed it.
   function syncButton() {
     const button = document.getElementById(BUTTON_ID);
     if (!button) return;
     const video = getVideo();
     const rate = video ? video.playbackRate : NORMAL_SPEED;
     const active = rate !== NORMAL_SPEED;
-    const path = button.querySelector("path");
-    if (path) path.style.fill = active ? "#ff0000" : "";
+
+    if (button.dataset.variant === "floating") {
+      button.textContent = formatRate(rate);
+      button.style.color = active ? "#ff0000" : "#ffffff";
+    } else {
+      const path = button.querySelector("path");
+      if (path) path.style.fill = active ? "#ff0000" : "";
+    }
+
     button.title = active
-      ? `SpeedyPlay: ${rate}× — click for 1×`
-      : `SpeedyPlay: click for ${settings.selectedSpeed}×`;
+      ? `SpeedyPlay: ${formatRate(rate)} — click for 1×`
+      : `SpeedyPlay: click for ${formatRate(settings.selectedSpeed)}`;
+  }
+
+  function getShortsHost() {
+    const video = getVideo();
+    if (!video) return null;
+    const host = video.closest("#shorts-player") || video.closest("ytd-reel-video-renderer");
+    if (!host) return null;
+    // The floating button is positioned against this box; only touch YouTube's
+    // layout if the box is not already a positioning context.
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    return host;
   }
 
   function ensureButton() {
-    if (document.getElementById(BUTTON_ID)) return;
-    const controls = document.querySelector(".ytp-right-controls");
-    if (!controls) return;
-    controls.prepend(buildButton());
+    const floating = onShorts();
+    const host = floating ? getShortsHost() : document.querySelector(".ytp-right-controls");
+    const existing = document.getElementById(BUTTON_ID);
+
+    if (!host) {
+      // Left the player behind (or moved between Shorts and watch pages).
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) {
+      if (existing.parentElement === host && existing.dataset.variant === (floating ? "floating" : "player")) {
+        syncButton();
+        return;
+      }
+      existing.remove();
+    }
+    host.prepend(buildButton(floating));
     syncButton();
   }
 
@@ -138,15 +230,31 @@
    * Video lifecycle
    * ------------------------------------------------------------------ */
 
-  function watchVideo() {
-    const video = getVideo();
-    if (!video || video === watchedVideo) return;
-    watchedVideo = video;
-    // `loadeddata` fires for every new video in the same element, which is how
-    // SPA navigation looks from here.
-    video.addEventListener("loadeddata", maybeAutoApply);
-    video.addEventListener("ratechange", syncButton);
+  function onVideoStart() {
+    beginReassert();
     maybeAutoApply();
+  }
+
+  function onRateChange() {
+    syncButton();
+    // Inside the window this catches YouTube restoring its own rate; outside
+    // it, a rate the viewer chose is simply reflected on the button.
+    if (Date.now() < reassertUntil) maybeAutoApply();
+  }
+
+  // Also runs when Shorts scrolls to the next reel, which is a new video even
+  // though the page never navigated.
+  function trackCurrentVideo() {
+    const video = getVideo();
+    if (video === currentVideo) return;
+    currentVideo = video;
+    if (!video) return;
+    if (!watched.has(video)) {
+      watched.add(video);
+      video.addEventListener("loadeddata", onVideoStart);
+      video.addEventListener("ratechange", onRateChange);
+    }
+    onVideoStart();
   }
 
   /* ------------------------------------------------------------------ *
@@ -154,15 +262,16 @@
    * ------------------------------------------------------------------ */
 
   // YouTube mutates the DOM constantly, so the observer only ever schedules one
-  // cheap check per animation frame.
+  // cheap pass per animation frame.
   let scheduled = false;
   function schedule() {
     if (scheduled) return;
     scheduled = true;
     requestAnimationFrame(() => {
       scheduled = false;
+      trackCurrentVideo();
       ensureButton();
-      watchVideo();
+      syncButton();
     });
   }
 
@@ -171,11 +280,9 @@
     subtree: true,
   });
 
-  // Re-attaching to the same element is harmless: the DOM ignores a duplicate
-  // listener registration with the same function reference.
   document.addEventListener("yt-navigate-finish", () => {
-    watchedVideo = null;
-    watchVideo();
+    currentVideo = null;
+    trackCurrentVideo();
     schedule();
   });
 

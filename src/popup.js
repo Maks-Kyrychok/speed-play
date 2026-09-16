@@ -3,7 +3,7 @@
 
 "use strict";
 
-const SPEED_OPTIONS = [1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+const SPEED_OPTIONS = [0.5, 0.75, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
 const DEFAULTS = { selectedSpeed: 2.0, autoApply: true };
 
 const chipsEl = document.getElementById("chips");

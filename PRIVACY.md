@@ -20,8 +20,9 @@ trackers and makes no network requests.
 ## Permissions
 
 - **storage** — saves your speed settings on your device.
-- **Access to youtube.com** — lets the extension add the speed button to the
-  player and change playback speed. It runs on no other site.
+- **Access to www.youtube.com** — lets the extension add the speed button to
+  the player and change playback speed. It runs on no other site, including
+  YouTube Music and the mobile site.
 
 ## Contact
 

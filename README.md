@@ -1,20 +1,28 @@
 # SpeedyPlay
 
 A small Chrome extension that switches YouTube playback speed without digging
-through the player's settings menu.
+through the player's settings menu. Desktop YouTube only.
 
 ## What it does
 
 - Adds a speed-toggle button to the YouTube player controls, next to the
   built-in ones. Clicking it flips between normal speed and your chosen speed;
   the icon turns red while the video is sped up.
+- Works on Shorts too, where the button floats over the reel and shows the
+  current speed.
 - Applies your chosen speed automatically to every new video, if you want it to.
   This is on by default and can be turned off in the popup.
+- Holds the speed while the player starts up. YouTube restores its own
+  remembered rate a moment after the page loads, so the speed is re-applied for
+  a few seconds and then left alone.
 - Skips ads, so they keep playing at normal speed.
 - Leaves a speed you set by hand alone: auto-apply only steps in when the video
-  is still at 1×.
+  is still at 1×, and switching speed from the button stops it re-applying.
 
-Speeds available: 1.25×, 1.5×, 1.75×, 2×, 2.5×, 3×.
+Speeds available: 0.5×, 0.75×, 1.25×, 1.5×, 1.75×, 2×, 2.5×, 3×.
+
+It runs on `www.youtube.com` only — not YouTube Music, not the mobile site, and
+not videos embedded on other sites.
 
 ## Install from source
 
@@ -36,7 +44,7 @@ cd src && zip -r ../speedyplay.zip . -x '.*' && cd ..
 | File | Purpose |
 | --- | --- |
 | `src/manifest.json` | Extension manifest (MV3) |
-| `src/content.js` | Player button and auto-apply |
+| `src/content.js` | Player button, Shorts button and auto-apply |
 | `src/popup.html` / `.css` / `.js` | Settings popup |
 
 Settings live in `chrome.storage.local` under `selectedSpeed` and `autoApply`.
