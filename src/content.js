@@ -6,6 +6,8 @@
   "use strict";
 
   const BUTTON_ID = "speedyplay-button";
+  const LABEL_ID = "speedyplay-label";
+  const ACTIVE_COLOR = "#ff0000";
   const NORMAL_SPEED = 1.0;
   const DEFAULTS = { selectedSpeed: 2.0, autoApply: true };
 
@@ -139,38 +141,75 @@
     "display:inline-flex;align-items:center;justify-content:center;" +
     "width:48px;height:100%;padding:0;vertical-align:top;";
 
-  // Shorts has no control bar to slot into, so the button floats over the reel.
-  const FLOATING_BUTTON_CSS =
-    "position:absolute;top:12px;left:12px;z-index:60;" +
-    "display:inline-flex;align-items:center;justify-content:center;" +
-    "min-width:44px;height:32px;padding:0 10px;border:0;border-radius:16px;" +
-    "background:rgba(0,0,0,0.6);color:#fff;cursor:pointer;" +
-    "font:600 13px/1 Roboto,Arial,sans-serif;";
-
   const CHEVRONS_SVG =
-    '<svg height="100%" viewBox="0 0 36 36" width="100%" style="pointer-events:none">' +
+    '<svg viewBox="0 0 36 36" style="pointer-events:none;width:100%;height:100%">' +
     '<path class="ytp-svg-fill" d="M 11 24 L 19 18 L 11 12 Z M 19 24 L 27 18 L 19 12 Z"></path>' +
     "</svg>";
 
-  function buildButton(floating) {
+  // YouTube marks dark mode with a `dark` attribute on <html>. The Shorts
+  // action column sits on the page background, not over the video, so it has
+  // to follow the site theme rather than always being light on dark.
+  function shortsTheme() {
+    return document.documentElement.hasAttribute("dark")
+      ? { bg: "rgba(255,255,255,0.1)", hover: "rgba(255,255,255,0.2)", fg: "#ffffff" }
+      : { bg: "rgba(0,0,0,0.05)", hover: "rgba(0,0,0,0.1)", fg: "#0f0f0f" };
+  }
+
+  function markRoot(element, variant) {
+    element.dataset.speedyplayRoot = "";
+    element.dataset.variant = variant;
+    return element;
+  }
+
+  const getRoot = () => document.querySelector("[data-speedyplay-root]");
+
+  function onToggle(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleSpeed();
+  }
+
+  function buildPlayerButton() {
     const button = document.createElement("button");
     button.id = BUTTON_ID;
-    button.dataset.variant = floating ? "floating" : "player";
-    if (floating) {
-      button.style.cssText = FLOATING_BUTTON_CSS;
-    } else {
-      // Flexbox keeps the icon centred and the hover ring the same size as the
-      // neighbouring YouTube controls.
-      button.className = "ytp-button";
-      button.style.cssText = PLAYER_BUTTON_CSS;
-      button.innerHTML = CHEVRONS_SVG;
-    }
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      toggleSpeed();
-    });
-    return button;
+    // Flexbox keeps the icon centred and the hover ring the same size as the
+    // neighbouring YouTube controls.
+    button.className = "ytp-button";
+    button.style.cssText = PLAYER_BUTTON_CSS;
+    button.innerHTML = CHEVRONS_SVG;
+    button.addEventListener("click", onToggle);
+    return markRoot(button, "player");
+  }
+
+  // Built to sit in the Shorts action column alongside like, dislike, comment
+  // and share: a round icon button with a label underneath, same as they have.
+  function buildShortsAction() {
+    const theme = shortsTheme();
+
+    const wrap = document.createElement("div");
+    wrap.style.cssText =
+      "display:flex;flex-direction:column;align-items:center;margin-bottom:16px;";
+
+    const button = document.createElement("button");
+    button.id = BUTTON_ID;
+    button.style.cssText =
+      "display:inline-flex;align-items:center;justify-content:center;" +
+      "width:48px;height:48px;padding:12px;border:0;border-radius:50%;" +
+      `background:${theme.bg};color:${theme.fg};cursor:pointer;`;
+    button.innerHTML = CHEVRONS_SVG;
+    button.addEventListener("click", onToggle);
+    // Inline styles cannot carry a :hover rule.
+    button.addEventListener("mouseenter", () => { button.style.background = theme.hover; });
+    button.addEventListener("mouseleave", () => { button.style.background = theme.bg; });
+
+    const label = document.createElement("span");
+    label.id = LABEL_ID;
+    label.style.cssText =
+      `margin-top:6px;color:${theme.fg};` +
+      "font:500 12px/1 Roboto,Arial,sans-serif;";
+
+    wrap.append(button, label);
+    return markRoot(wrap, "shorts");
   }
 
   // Reflects the real playback rate, whoever changed it.
@@ -181,48 +220,63 @@
     const rate = video ? video.playbackRate : NORMAL_SPEED;
     const active = rate !== NORMAL_SPEED;
 
-    if (button.dataset.variant === "floating") {
-      button.textContent = formatRate(rate);
-      button.style.color = active ? "#ff0000" : "#ffffff";
-    } else {
-      const path = button.querySelector("path");
-      if (path) path.style.fill = active ? "#ff0000" : "";
+    const path = button.querySelector("path");
+    if (path) path.style.fill = active ? ACTIVE_COLOR : "";
+
+    const label = document.getElementById(LABEL_ID);
+    if (label) {
+      label.textContent = formatRate(rate);
+      label.style.color = active ? ACTIVE_COLOR : shortsTheme().fg;
     }
 
     button.title = active
-      ? `SpeedyPlay: ${formatRate(rate)} — click for 1×`
+      ? `SpeedyPlay: ${formatRate(rate)} \u2014 click for 1\u00d7`
       : `SpeedyPlay: click for ${formatRate(settings.selectedSpeed)}`;
   }
 
-  function getShortsHost() {
+  // The overlay that holds like/dislike/comment/share. YouTube renames these
+  // containers from time to time, so try the known shapes in turn.
+  const SHORTS_ACTION_SELECTORS = [
+    "ytd-reel-player-overlay-renderer #actions",
+    "#actions.ytd-reel-player-overlay-renderer",
+    "#actions",
+  ];
+
+  function getShortsActionHost() {
     const video = getVideo();
     if (!video) return null;
-    const host = video.closest("#shorts-player") || video.closest("ytd-reel-video-renderer");
-    if (!host) return null;
-    // The floating button is positioned against this box; only touch YouTube's
-    // layout if the box is not already a positioning context.
-    if (getComputedStyle(host).position === "static") host.style.position = "relative";
-    return host;
+    const reel = video.closest("ytd-reel-video-renderer") || document;
+    for (const selector of SHORTS_ACTION_SELECTORS) {
+      const host = reel.querySelector(selector);
+      if (host) return host;
+    }
+    return null;
   }
 
   function ensureButton() {
-    const floating = onShorts();
-    const host = floating ? getShortsHost() : document.querySelector(".ytp-right-controls");
-    const existing = document.getElementById(BUTTON_ID);
+    const shorts = onShorts();
+    const variant = shorts ? "shorts" : "player";
+    const host = shorts
+      ? getShortsActionHost()
+      : document.querySelector(".ytp-right-controls");
+    const existing = getRoot();
 
     if (!host) {
-      // Left the player behind (or moved between Shorts and watch pages).
+      // Left the player behind, or moved between Shorts and watch pages.
       if (existing) existing.remove();
       return;
     }
     if (existing) {
-      if (existing.parentElement === host && existing.dataset.variant === (floating ? "floating" : "player")) {
+      if (existing.parentElement === host && existing.dataset.variant === variant) {
         syncButton();
         return;
       }
       existing.remove();
     }
-    host.prepend(buildButton(floating));
+    // In the player bar the button goes first; in the action column it goes
+    // last, under the buttons that were already there.
+    if (shorts) host.append(buildShortsAction());
+    else host.prepend(buildPlayerButton());
     syncButton();
   }
 
