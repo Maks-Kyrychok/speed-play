@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Flutter/Dart (legacy, kept for the baseline commit)
+.dart_tool/
+/build/

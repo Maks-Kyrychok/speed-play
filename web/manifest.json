@@ -1,0 +1,33 @@
+{
+    "manifest_version": 3,
+    "name": "SpeedyPlay",
+    "version": "1.0",
+    "description": "Quickly toggle YouTube video playback speed",
+    "permissions": [
+        "storage"
+    ],
+    "host_permissions": [
+        "*://*.youtube.com/*"
+    ],
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+    },
+    "action": {
+        "default_popup": "index.html",
+        "default_icon": {
+            "16": "icons/icon_16.png",
+            "48": "icons/icon_48.png",
+            "128": "icons/icon_128.png"
+        }
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*.youtube.com/*"
+            ],
+            "js": [
+                "content.js"
+            ]
+        }
+    ]
+}
