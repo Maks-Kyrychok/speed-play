@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SpeedyPlay</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="header">
+    <h1 class="title">Speed Settings</h1>
+  </header>
+
+  <main class="content">
+    <p class="label" id="speed-label">Toggle speed</p>
+    <div class="chips" role="radiogroup" aria-labelledby="speed-label" id="chips"></div>
+
+    <label class="switch">
+      <input type="checkbox" id="auto-apply">
+      <span class="switch-text">
+        Apply automatically to new videos
+        <span class="switch-hint">Otherwise the speed is used only when you toggle it.</span>
+      </span>
+    </label>
+
+    <p class="hint">
+      Toggle from the player button or press <kbd id="shortcut">Alt+S</kbd>.
+      <button type="button" class="link" id="edit-shortcut">Change</button>
+    </p>
+
+    <button type="button" class="save" id="save">Save</button>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

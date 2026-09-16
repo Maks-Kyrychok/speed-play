@@ -1,16 +1,64 @@
-# speedyplay
+# SpeedyPlay
 
-A new Flutter project.
+A small Chrome extension that switches YouTube playback speed without digging
+through the player's settings menu.
 
-## Getting Started
+## What it does
 
-This project is a starting point for a Flutter application.
+- Adds a speed-toggle button to the YouTube player controls, next to the
+  built-in ones. Clicking it flips between normal speed and your chosen speed;
+  the icon turns red while the video is sped up.
+- Applies your chosen speed automatically to every new video, if you want it to.
+  This is on by default and can be turned off in the popup.
+- Responds to a keyboard shortcut — `Alt+S` out of the box, remappable at
+  `chrome://extensions/shortcuts`.
+- Skips ads, so they keep playing at normal speed.
+- Leaves a speed you set by hand alone: auto-apply only steps in when the video
+  is still at 1×.
 
-A few resources to get you started if this is your first Flutter project:
+Speeds available: 1.25×, 1.5×, 1.75×, 2×, 2.5×, 3×.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Install from source
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. Open `chrome://extensions` and turn on **Developer mode**.
+2. Click **Load unpacked** and select the `src/` folder of this repository.
+
+There is no build step — `src/` is the extension.
+
+## Packaging for the Chrome Web Store
+
+Zip the contents of `src/` (the manifest must sit at the root of the archive):
+
+```sh
+cd src && zip -r ../speedyplay.zip . -x '.*' && cd ..
+```
+
+## Layout
+
+| File | Purpose |
+| --- | --- |
+| `src/manifest.json` | Extension manifest (MV3) |
+| `src/content.js` | Player button, auto-apply, hotkey handling |
+| `src/background.js` | Service worker relaying the keyboard shortcut |
+| `src/popup.html` / `.css` / `.js` | Settings popup |
+
+Settings live in `chrome.storage.local` under `selectedSpeed` and `autoApply`,
+and the content script picks up changes immediately — no page reload needed.
+
+## Permissions
+
+- `storage` — remembers your chosen speed.
+- `*://*.youtube.com/*` — the extension only runs on YouTube.
+
+Nothing is collected or transmitted. See [PRIVACY.md](PRIVACY.md).
+
+## History
+
+Versions before 1.0.0 were built with Flutter Web. The popup was rewritten in
+plain HTML/CSS/JS, which dropped the packaged extension from ~34 MB to under 20 KB
+and made it open instantly. The Flutter implementation is still in the git
+history at the initial commit.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

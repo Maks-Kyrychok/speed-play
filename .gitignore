@@ -6,6 +6,5 @@
 *.iml
 .vscode/
 
-# Flutter/Dart (legacy, kept for the baseline commit)
-.dart_tool/
-/build/
+# Packaged extension
+*.zip
