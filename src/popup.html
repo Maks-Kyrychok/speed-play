@@ -12,7 +12,7 @@
 
   <main class="content">
     <p class="label" id="speed-label">Toggle speed</p>
-    <div class="chips" role="radiogroup" aria-labelledby="speed-label" id="chips"></div>
+    <div class="chips" id="chips" aria-labelledby="speed-label"></div>
 
     <label class="switch">
       <input type="checkbox" id="auto-apply">
@@ -22,13 +22,7 @@
       </span>
     </label>
 
-    <p class="hint">
-      Toggle from the player button or press <kbd id="shortcut">Alt+S</kbd>.
-      <button type="button" class="link" id="edit-shortcut">Change</button>
-    </p>
-
-    <button type="button" class="save" id="save">Save</button>
-    <p class="status" id="status" role="status" aria-live="polite"></p>
+    <p class="hint">Use the speed button in the YouTube player to switch back and forth.</p>
   </main>
 
   <script src="popup.js"></script>

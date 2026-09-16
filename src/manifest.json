@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SpeedyPlay",
   "version": "1.0.0",
-  "description": "Toggle YouTube playback speed with one click, a hotkey, or automatically on every video.",
+  "description": "Toggle YouTube playback speed with one click, or apply it automatically to every video.",
   "permissions": [
     "storage"
   ],
@@ -23,9 +23,6 @@
     "48": "icons/icon_48.png",
     "128": "icons/icon_128.png"
   },
-  "background": {
-    "service_worker": "background.js"
-  },
   "content_scripts": [
     {
       "matches": [
@@ -36,13 +33,5 @@
       ],
       "run_at": "document_idle"
     }
-  ],
-  "commands": {
-    "toggle-speed": {
-      "suggested_key": {
-        "default": "Alt+S"
-      },
-      "description": "Toggle playback speed"
-    }
-  }
+  ]
 }

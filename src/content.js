@@ -1,6 +1,6 @@
 // SpeedyPlay content script.
-// Injects a speed-toggle button into the YouTube player, applies the saved
-// speed to new videos, and responds to the keyboard shortcut.
+// Injects a speed-toggle button into the YouTube player and applies the saved
+// speed to new videos.
 
 (() => {
   "use strict";
@@ -178,14 +178,6 @@
     watchVideo();
     schedule();
   });
-
-  try {
-    chrome.runtime.onMessage.addListener((message) => {
-      if (message && message.type === "toggle-speed") toggleSpeed();
-    });
-  } catch {
-    // Messaging unavailable; the in-player button still works.
-  }
 
   loadSettings();
   schedule();

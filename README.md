@@ -10,8 +10,6 @@ through the player's settings menu.
   the icon turns red while the video is sped up.
 - Applies your chosen speed automatically to every new video, if you want it to.
   This is on by default and can be turned off in the popup.
-- Responds to a keyboard shortcut — `Alt+S` out of the box, remappable at
-  `chrome://extensions/shortcuts`.
 - Skips ads, so they keep playing at normal speed.
 - Leaves a speed you set by hand alone: auto-apply only steps in when the video
   is still at 1×.
@@ -38,12 +36,12 @@ cd src && zip -r ../speedyplay.zip . -x '.*' && cd ..
 | File | Purpose |
 | --- | --- |
 | `src/manifest.json` | Extension manifest (MV3) |
-| `src/content.js` | Player button, auto-apply, hotkey handling |
-| `src/background.js` | Service worker relaying the keyboard shortcut |
+| `src/content.js` | Player button and auto-apply |
 | `src/popup.html` / `.css` / `.js` | Settings popup |
 
-Settings live in `chrome.storage.local` under `selectedSpeed` and `autoApply`,
-and the content script picks up changes immediately — no page reload needed.
+Settings live in `chrome.storage.local` under `selectedSpeed` and `autoApply`.
+The popup saves every change straight away, and the content script picks it up
+immediately — no page reload needed.
 
 ## Permissions
 
