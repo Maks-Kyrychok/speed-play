@@ -204,17 +204,32 @@
     const sample = host.querySelector(":scope > button-view-model") ||
                    host.querySelector("button-view-model");
     if (!sample) return NATIVE_CLASSES;
-    const pick = (selector, fallback) => {
-      const found = sample.querySelector(selector);
-      return found && found.className ? found.className : fallback;
-    };
+
+    const cls = (element, fallback) =>
+      element && element.className ? element.className : fallback;
+
+    const button = sample.querySelector("button");
+
+    // Anchor on the icon and the caption themselves and take their containers,
+    // rather than matching class names by substring. Several of the button's
+    // own classes contain "Icon" (IconButton, MainstageIconSize), so a
+    // substring match picks up the button and its padding and tonal background
+    // end up on the icon box, squashing and darkening it.
+    const iconWrapper = sample.querySelector(".ytIconWrapperHost, yt-icon");
+    const iconBox =
+      iconWrapper && iconWrapper.parentElement !== button
+        ? iconWrapper.parentElement
+        : null;
+
+    const caption = sample.querySelector("[role='text']");
+
     return {
-      wrap: sample.className || NATIVE_CLASSES.wrap,
-      label: pick("label", NATIVE_CLASSES.label),
-      button: pick("button", NATIVE_CLASSES.button),
-      icon: pick("[class*='Icon']", NATIVE_CLASSES.icon),
-      labelBox: pick("[class*='WithLabelLabel']", NATIVE_CLASSES.labelBox),
-      labelText: pick("[class*='WithLabelLabel'] span", NATIVE_CLASSES.labelText),
+      wrap: cls(sample, NATIVE_CLASSES.wrap),
+      label: cls(sample.querySelector("label"), NATIVE_CLASSES.label),
+      button: cls(button, NATIVE_CLASSES.button),
+      icon: cls(iconBox, NATIVE_CLASSES.icon),
+      labelBox: cls(caption && caption.parentElement, NATIVE_CLASSES.labelBox),
+      labelText: cls(caption, NATIVE_CLASSES.labelText),
     };
   }
 
