@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SpeedyPlay",
   "version": "1.0.0",
-  "description": "Toggle YouTube playback speed with one click, or apply it automatically to every video.",
+  "description": "Playback speed control for YouTube.",
   "permissions": [
     "storage"
   ],
