@@ -146,15 +146,6 @@
     '<path class="ytp-svg-fill" d="M 11 24 L 19 18 L 11 12 Z M 19 24 L 27 18 L 19 12 Z"></path>' +
     "</svg>";
 
-  // YouTube marks dark mode with a `dark` attribute on <html>. The Shorts
-  // action column sits on the page background, not over the video, so it has
-  // to follow the site theme rather than always being light on dark.
-  function shortsTheme() {
-    return document.documentElement.hasAttribute("dark")
-      ? { bg: "rgba(255,255,255,0.1)", hover: "rgba(255,255,255,0.2)", fg: "#ffffff" }
-      : { bg: "rgba(0,0,0,0.05)", hover: "rgba(0,0,0,0.1)", fg: "#0f0f0f" };
-  }
-
   function markRoot(element, variant) {
     element.dataset.speedyplayRoot = "";
     element.dataset.variant = variant;
@@ -181,34 +172,82 @@
     return markRoot(button, "player");
   }
 
-  // Built to sit in the Shorts action column alongside like, dislike, comment
-  // and share: a round icon button with a label underneath, same as they have.
-  function buildShortsAction() {
-    const theme = shortsTheme();
+  // Class names of one native Shorts action, used as a template. They are read
+  // off a live button whenever possible so the button keeps matching after
+  // YouTube renames them; these values are only the fallback.
+  const NATIVE_CLASSES = {
+    wrap: "ytSpecButtonViewModelHost ytwReelActionBarViewModelHostDesktopActionButton",
+    label: "ytSpecButtonShapeWithLabelHost ytSpecButtonShapeWithLabelIsOverlay",
+    button:
+      "ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal " +
+      "ytSpecButtonShapeNextOverlayDark ytSpecButtonShapeNextSizeL " +
+      "ytSpecButtonShapeNextIconButton ytSpecButtonShapeNextMainstageIconSize " +
+      "ytSpecButtonShapeNextMainstagePadding",
+    icon: "ytSpecButtonShapeNextIcon ytSpecButtonShapeNextElevatedContent",
+    labelBox: "ytSpecButtonShapeWithLabelLabel",
+    labelText:
+      "ytAttributedStringHost ytAttributedStringWhiteSpacePreWrap " +
+      "ytAttributedStringTextAlignmentCenter ytAttributedStringWordWrapping",
+  };
 
+  function nativeClasses(host) {
+    // The like button nests an extra view model, so take a plain action.
+    const sample = host.querySelector(":scope > button-view-model") ||
+                   host.querySelector("button-view-model");
+    if (!sample) return NATIVE_CLASSES;
+    const pick = (selector, fallback) => {
+      const found = sample.querySelector(selector);
+      return found && found.className ? found.className : fallback;
+    };
+    return {
+      wrap: sample.className || NATIVE_CLASSES.wrap,
+      label: pick("label", NATIVE_CLASSES.label),
+      button: pick("button", NATIVE_CLASSES.button),
+      icon: pick("[class*='Icon']", NATIVE_CLASSES.icon),
+      labelBox: pick("[class*='WithLabelLabel']", NATIVE_CLASSES.labelBox),
+      labelText: pick("[class*='WithLabelLabel'] span", NATIVE_CLASSES.labelText),
+    };
+  }
+
+  // Same shape as a native action: round icon button with a caption under it,
+  // where like and comment show their counts and this one shows the speed.
+  function buildShortsAction(host) {
+    const css = nativeClasses(host);
+
+    // A plain <div> rather than <button-view-model>: constructing YouTube's own
+    // custom element could let their framework re-render over our contents.
     const wrap = document.createElement("div");
-    wrap.style.cssText =
-      "display:flex;flex-direction:column;align-items:center;margin-bottom:16px;";
+    wrap.className = css.wrap;
+
+    const label = document.createElement("label");
+    label.className = css.label;
 
     const button = document.createElement("button");
     button.id = BUTTON_ID;
-    button.style.cssText =
-      "display:inline-flex;align-items:center;justify-content:center;" +
-      "width:48px;height:48px;padding:12px;border:0;border-radius:50%;" +
-      `background:${theme.bg};color:${theme.fg};cursor:pointer;`;
-    button.innerHTML = CHEVRONS_SVG;
+    button.className = css.button;
+    button.innerHTML =
+      `<div aria-hidden="true" class="${css.icon}">` +
+      '<span class="ytIconWrapperHost" style="width:24px;height:24px">' +
+      '<span class="yt-icon-shape ytSpecIconShapeHost">' +
+      '<div style="width:100%;height:100%;display:block;' +
+      'filter:drop-shadow(0px 1px 4px rgba(0,0,0,0.3));fill:currentcolor">' +
+      // The 36-unit artwork is scaled into the 24px box YouTube's icons use.
+      '<svg viewBox="0 0 36 36" width="24" height="24" focusable="false" aria-hidden="true" ' +
+      'style="pointer-events:none;display:inherit;width:100%;height:100%">' +
+      '<path d="M 11 24 L 19 18 L 11 12 Z M 19 24 L 27 18 L 19 12 Z"></path>' +
+      "</svg></div></span></span></div>";
     button.addEventListener("click", onToggle);
-    // Inline styles cannot carry a :hover rule.
-    button.addEventListener("mouseenter", () => { button.style.background = theme.hover; });
-    button.addEventListener("mouseleave", () => { button.style.background = theme.bg; });
 
-    const label = document.createElement("span");
-    label.id = LABEL_ID;
-    label.style.cssText =
-      `margin-top:6px;color:${theme.fg};` +
-      "font:500 12px/1 Roboto,Arial,sans-serif;";
+    const labelBox = document.createElement("div");
+    labelBox.className = css.labelBox;
+    const labelText = document.createElement("span");
+    labelText.id = LABEL_ID;
+    labelText.className = css.labelText;
+    labelText.setAttribute("role", "text");
+    labelBox.append(labelText);
 
-    wrap.append(button, label);
+    label.append(button, labelBox);
+    wrap.append(label);
     return markRoot(wrap, "shorts");
   }
 
@@ -220,35 +259,49 @@
     const rate = video ? video.playbackRate : NORMAL_SPEED;
     const active = rate !== NORMAL_SPEED;
 
+    // Cleared rather than set to a colour, so YouTube's own styling applies
+    // while the video runs at normal speed.
     const path = button.querySelector("path");
     if (path) path.style.fill = active ? ACTIVE_COLOR : "";
 
     const label = document.getElementById(LABEL_ID);
     if (label) {
       label.textContent = formatRate(rate);
-      label.style.color = active ? ACTIVE_COLOR : shortsTheme().fg;
+      label.style.color = active ? ACTIVE_COLOR : "";
     }
 
-    button.title = active
-      ? `SpeedyPlay: ${formatRate(rate)} \u2014 click for 1\u00d7`
+    const title = active
+      ? `SpeedyPlay: ${formatRate(rate)} — click for 1×`
       : `SpeedyPlay: click for ${formatRate(settings.selectedSpeed)}`;
+    button.title = title;
+    button.setAttribute("aria-label", title);
   }
 
-  // The overlay that holds like/dislike/comment/share. YouTube renames these
-  // containers from time to time, so try the known shapes in turn.
+  // The column holding like, dislike, comment and share.
   const SHORTS_ACTION_SELECTORS = [
+    "reel-action-bar-view-model",
+    ".ytReelPlayerOverlayViewModelActionsContainer",
     "ytd-reel-player-overlay-renderer #actions",
-    "#actions.ytd-reel-player-overlay-renderer",
     "#actions",
   ];
+
+  const isOnScreen = (element) => {
+    const box = element.getBoundingClientRect();
+    return box.height > 0 && box.top < window.innerHeight && box.bottom > 0;
+  };
 
   function getShortsActionHost() {
     const video = getVideo();
     if (!video) return null;
-    const reel = video.closest("ytd-reel-video-renderer") || document;
-    for (const selector of SHORTS_ACTION_SELECTORS) {
-      const host = reel.querySelector(selector);
-      if (host) return host;
+    // Prefer the column belonging to the active reel; fall back to a page-wide
+    // search for layouts where the overlay sits outside the reel element.
+    const reel = video.closest("ytd-reel-video-renderer");
+    for (const scope of reel ? [reel, document] : [document]) {
+      for (const selector of SHORTS_ACTION_SELECTORS) {
+        const found = [...scope.querySelectorAll(selector)];
+        const host = found.find(isOnScreen) || found[0];
+        if (host) return host.querySelector("reel-action-bar-view-model") || host;
+      }
     }
     return null;
   }
@@ -275,8 +328,14 @@
     }
     // In the player bar the button goes first; in the action column it goes
     // last, under the buttons that were already there.
-    if (shorts) host.append(buildShortsAction());
-    else host.prepend(buildPlayerButton());
+    if (shorts) {
+      const action = buildShortsAction(host);
+      const pivot = host.querySelector(":scope > pivot-button-view-model");
+      if (pivot) host.insertBefore(action, pivot);
+      else host.append(action);
+    } else {
+      host.prepend(buildPlayerButton());
+    }
     syncButton();
   }
 
