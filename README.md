@@ -47,7 +47,8 @@ cd src && zip -r ../speedyplay.zip . -x '.*' && cd ..
 | `src/content.js` | Player button, Shorts button and auto-apply |
 | `src/popup.html` / `.css` / `.js` | Settings popup |
 | `assets/icon.svg` | Vector master for the extension icon |
-| `assets/make-icons.py` | Renders that master to `src/icons/` |
+| `assets/make-icons.py` | Renders that master to `src/icons/` and the store icon |
+| `assets/store-icon-128.png` | Listing icon: 96x96 of artwork on a 128x128 canvas |
 
 Settings live in `chrome.storage.local` under `selectedSpeed` and `autoApply`.
 The popup saves every change straight away, and the content script picks it up
@@ -72,8 +73,10 @@ history at the initial commit.
 
 The icon is original artwork for this project, covered by the same licence as
 the code. `assets/icon.svg` is the master; `python3 assets/make-icons.py`
-renders the three PNG sizes the manifest declares, with no image libraries
-needed. It carries the same double chevron as the in-player button and the
+renders the three PNG sizes the manifest declares plus the store listing icon,
+with no image libraries needed. The listing icon is padded to 96x96 of artwork
+inside a 128x128 canvas, which is what the store expects; the icons the
+manifest declares fill their canvas instead. It carries the same double chevron as the in-player button and the
 same red as the popup, so the extension reads as one thing wherever it shows
 up. `make-icons.py` keeps an indigo alternative next to the red, since a red
 tile with white arrows sits close to YouTube's own look.

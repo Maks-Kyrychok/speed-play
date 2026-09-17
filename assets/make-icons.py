@@ -81,10 +81,28 @@ GLYPH = (255, 255, 255)
 # and is stronger still on contrast (glyph 4.47:1, toolbars 4.01:1 / 3.21:1).
 ALTERNATIVE_TILE = (0x63, 0x66, 0xF1)
 
+def pad(rows, size, inner):
+    """Centres an `inner`-sized render on a transparent `size` canvas.
+
+    The store listing icon is specified as 96x96 of artwork inside a 128x128
+    image, unlike the toolbar icon which fills its canvas edge to edge."""
+    margin = (size - inner) // 2
+    blank = bytes(4 * size)
+    out = [bytearray(blank) for _ in range(size)]
+    for y, row in enumerate(rows):
+        out[margin + y][margin * 4:(margin + inner) * 4] = row
+    return out
+
+
 if __name__ == "__main__":
     import pathlib
     out = pathlib.Path(__file__).resolve().parent.parent / "src" / "icons"
     for size in (16, 48, 128):
         path = out / f"icon_{size}.png"
         write_png(path, size, render(size, TILE, GLYPH))
-        print(f"{path.relative_to(path.parents[2])}  {size}x{size}")
+        print(f"{path.relative_to(path.parents[2])}  {size}x{size}  (вщент)")
+
+    # Chrome Web Store listing icon: 96x96 of artwork on a 128x128 canvas.
+    store = pathlib.Path(__file__).resolve().parent / "store-icon-128.png"
+    write_png(store, 128, pad(render(96, TILE, GLYPH), 128, 96))
+    print(f"{store.relative_to(store.parents[1])}  128x128  (графіка 96x96 + поля 16px)")
