@@ -1,0 +1,8 @@
+<!--
+  SpeedyPlay icon, vector master. Original artwork for this project, MIT
+  licensed with the rest of it. Raster versions: python3 assets/make-icons.py
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="28.2" ry="28.2" fill="#6366F1"/>
+  <path fill="#FFFFFF" d="M 21.8 25.6 L 64 64 L 21.8 102.4 Z M 64 25.6 L 106.2 64 L 64 102.4 Z"/>
+</svg>

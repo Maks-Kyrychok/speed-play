@@ -46,6 +46,8 @@ cd src && zip -r ../speedyplay.zip . -x '.*' && cd ..
 | `src/manifest.json` | Extension manifest (MV3) |
 | `src/content.js` | Player button, Shorts button and auto-apply |
 | `src/popup.html` / `.css` / `.js` | Settings popup |
+| `assets/icon.svg` | Vector master for the extension icon |
+| `assets/make-icons.py` | Renders that master to `src/icons/` |
 
 Settings live in `chrome.storage.local` under `selectedSpeed` and `autoApply`.
 The popup saves every change straight away, and the content script picks it up
@@ -65,6 +67,15 @@ plain HTML/CSS/JS, which dropped the packaged extension from ~34 MB to under 20 
 and made it open instantly. The Flutter implementation is still in the git
 history at the initial commit.
 
+## Icon
+
+The icon is original artwork for this project, covered by the same licence as
+the code. `assets/icon.svg` is the master; `python3 assets/make-icons.py`
+renders the three PNG sizes the manifest declares, with no image libraries
+needed. Indigo was picked because it holds up on both a light and a dark
+browser toolbar while giving the white chevrons the strongest contrast of the
+shades tried.
+
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). This covers the icon as well.
