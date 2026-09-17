@@ -30,4 +30,4 @@ trackers and makes no network requests.
 
 ## Contact
 
-Questions about this policy: gerivka1998@gmail.com
+Questions about this policy: maks.kyrychok@gmail.com
