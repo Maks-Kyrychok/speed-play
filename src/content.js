@@ -141,6 +141,10 @@
     "display:inline-flex;align-items:center;justify-content:center;" +
     "width:48px;height:100%;padding:0;vertical-align:top;";
 
+  // Tight box around "M 11 24 L 19 18 L 11 12 Z M 19 24 L 27 18 L 19 12 Z",
+  // whose artwork spans x 11-27 and y 12-24.
+  const SHORTS_ICON_VIEWBOX = "10 11 18 14";
+
   const CHEVRONS_SVG =
     '<svg viewBox="0 0 36 36" style="pointer-events:none;width:100%;height:100%">' +
     '<path class="ytp-svg-fill" d="M 11 24 L 19 18 L 11 12 Z M 19 24 L 27 18 L 19 12 Z"></path>' +
@@ -231,8 +235,11 @@
       '<span class="yt-icon-shape ytSpecIconShapeHost">' +
       '<div style="width:100%;height:100%;display:block;' +
       'filter:drop-shadow(0px 1px 4px rgba(0,0,0,0.3));fill:currentcolor">' +
-      // The 36-unit artwork is scaled into the 24px box YouTube's icons use.
-      '<svg viewBox="0 0 36 36" width="24" height="24" focusable="false" aria-hidden="true" ' +
+      // The player icon leaves wide margins inside its 36-unit box, which is
+      // the convention there but renders tiny in a 24px Shorts icon. Cropping
+      // the box to the artwork plus one unit of padding makes the chevrons
+      // fill it the way the native glyphs do.
+      `<svg viewBox="${SHORTS_ICON_VIEWBOX}" width="24" height="24" focusable="false" aria-hidden="true" ` +
       'style="pointer-events:none;display:inherit;width:100%;height:100%">' +
       '<path d="M 11 24 L 19 18 L 11 12 Z M 19 24 L 27 18 L 19 12 Z"></path>' +
       "</svg></div></span></span></div>";
