@@ -72,9 +72,10 @@ history at the initial commit.
 The icon is original artwork for this project, covered by the same licence as
 the code. `assets/icon.svg` is the master; `python3 assets/make-icons.py`
 renders the three PNG sizes the manifest declares, with no image libraries
-needed. Indigo was picked because it holds up on both a light and a dark
-browser toolbar while giving the white chevrons the strongest contrast of the
-shades tried.
+needed. It carries the same double chevron as the in-player button and the
+same red as the popup, so the extension reads as one thing wherever it shows
+up. `make-icons.py` keeps an indigo alternative next to the red, since a red
+tile with white arrows sits close to YouTube's own look.
 
 ## License
 

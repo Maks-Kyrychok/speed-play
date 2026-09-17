@@ -70,10 +70,16 @@ DEFAULT_CHEVRONS = [
     [(0.50, 0.20), (0.83, 0.50), (0.50, 0.80)],
 ]
 
-# Indigo reads on both a light and a dark browser toolbar, and gives the white
-# chevrons the strongest contrast of the shades tried (4.47:1).
-TILE = (0x63, 0x66, 0xF1)
+# YouTube red, matching the accent the popup and the in-player button use, so
+# the extension reads as one thing. Balanced on both toolbars: white chevrons
+# at 4.00:1, tile against a light toolbar 3.59:1 and a dark one 3.59:1.
+TILE = (0xFF, 0x00, 0x00)
 GLYPH = (255, 255, 255)
+
+# A red tile with white play arrows is close to YouTube's own trade dress. If
+# the store ever objects, swap TILE for this indigo, which was the runner-up
+# and is stronger still on contrast (glyph 4.47:1, toolbars 4.01:1 / 3.21:1).
+ALTERNATIVE_TILE = (0x63, 0x66, 0xF1)
 
 if __name__ == "__main__":
     import pathlib
