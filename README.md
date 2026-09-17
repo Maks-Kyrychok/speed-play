@@ -58,7 +58,8 @@ immediately — no page reload needed.
 - `storage` — remembers your chosen speed.
 - `*://*.youtube.com/*` — the extension only runs on YouTube.
 
-Nothing is collected or transmitted. See [PRIVACY.md](PRIVACY.md).
+Nothing is collected or transmitted. See [PRIVACY.md](PRIVACY.md), published
+at <https://maks-kyrychok.github.io/speed-play/PRIVACY.html>.
 
 ## History
 

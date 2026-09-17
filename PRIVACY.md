@@ -1,3 +1,7 @@
+---
+title: Privacy Policy
+---
+
 # Privacy Policy for SpeedyPlay
 
 _Last updated: 17 September 2026_

@@ -1,0 +1,5 @@
+# GitHub Pages settings. Only purpose: serve the privacy policy as a web page,
+# since the Chrome Web Store needs it at a public URL.
+title: SpeedyPlay
+description: Playback speed control for YouTube
+theme: jekyll-theme-primer
