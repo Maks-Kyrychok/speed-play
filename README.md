@@ -84,13 +84,14 @@ The two sets are split on `Shift` deliberately. Plain `Alt` is the page's,
 `Alt+Shift` is the browser's. Without that split a single `Alt+Shift+S` would
 open the popup through the browser and toggle the speed in the page at once.
 
-**Anywhere in the browser**, `chrome.commands` provides `Alt+Shift+S` for the
-popup, `Alt+Shift+A` to toggle and `Alt+Shift+.` / `Alt+Shift+,` to step. These
-only work if the browser agreed to reserve them, which is not a given:
-Chromium forks such as Arc take many combinations for their own interface, and
-a shortcut the browser declined is silently left unassigned, after which the
-keypress falls through to the page and the extension merely looks broken. The
-popup reads the real assignments and strikes through any that are missing.
+**Anywhere in the browser**, `chrome.commands` provides the same actions on
+`Alt+Shift+S`, `Alt+Shift+A`, `Alt+Shift+.` and `Alt+Shift+,`, which is what
+reaches a YouTube tab that is not focused. These only work if the browser
+agreed to reserve them, which is not a given: Chromium forks such as Arc take
+many combinations for their own interface, and one the browser declines is
+left unassigned in silence. The popup does not list them, since the page
+shortcuts always work and listing both said the same thing twice; it links to
+`chrome://extensions/shortcuts` instead.
 
 Suggested shortcuts are applied when an extension is **installed**, not when
 it is reloaded, so editing them here does nothing to a copy already loaded;

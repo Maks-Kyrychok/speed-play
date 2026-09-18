@@ -98,33 +98,6 @@ async function init() {
   sync();
 }
 
-// Shows the shortcuts the user actually has: they are remappable, and Chrome
-// leaves one unassigned if it collided with another extension.
-async function loadShortcuts() {
-  const byName = {
-    "toggle-speed": document.getElementById("sc-toggle"),
-    "speed-up": document.getElementById("sc-up"),
-    "speed-down": document.getElementById("sc-down"),
-  };
-  const commands = await chrome.commands.getAll();
-  let missing = 0;
-  for (const command of commands) {
-    const el = byName[command.name];
-    if (!el) continue;
-    el.textContent = command.shortcut || "not set";
-    if (!command.shortcut) {
-      // Chrome silently leaves a shortcut unassigned when it clashes with
-      // another extension or the platform, and then the key just falls
-      // through to the page. Say so rather than letting it look broken.
-      el.classList.add("kbd-unset");
-      missing += 1;
-    }
-  }
-  if (missing) {
-    document.getElementById("shortcut-warning").hidden = false;
-  }
-}
-
 document.getElementById("edit-shortcut").addEventListener("click", () => {
   chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
 });
@@ -150,5 +123,4 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 init();
-loadShortcuts();
 send({ type: "get-rate" });
