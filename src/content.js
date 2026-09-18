@@ -100,6 +100,11 @@
     );
   }
 
+  const currentRate = () => {
+    const video = getVideo();
+    return video ? Speed.round(video.playbackRate) : null;
+  };
+
   // Ads play through the same element; changing their speed is not wanted.
   function isAdShowing() {
     const player = document.querySelector("#movie_player");
@@ -454,6 +459,12 @@
 
   function onRateChange() {
     syncButton();
+    try {
+      // Nothing is listening unless the popup is open, hence the empty catch.
+      chrome.runtime.sendMessage({ type: "rate-changed", rate: currentRate() }).catch(() => {});
+    } catch {
+      // Extension context gone.
+    }
     // Inside the window this catches YouTube restoring its own rate; outside
     // it, a rate the viewer chose is simply reflected on the button.
     if (Date.now() < reassertUntil) maybeAutoApply();
@@ -503,12 +514,31 @@
     schedule();
   });
 
+  // Applies a speed the popup picked, straight away rather than only on the
+  // next toggle.
+  function applyFromPopup(speed) {
+    const video = getVideo();
+    if (!video || isAdShowing()) return;
+    reassertUntil = 0;
+    const next = Speed.clamp(speed);
+    setSpeed(video, next);
+    showToast(formatRate(next));
+  }
+
   try {
-    chrome.runtime.onMessage.addListener((message) => {
+    chrome.runtime.onMessage.addListener((message, _sender, respond) => {
       if (!message) return;
-      if (message.type === "toggle-speed") toggleSpeed();
-      else if (message.type === "speed-up") stepSpeed(1);
-      else if (message.type === "speed-down") stepSpeed(-1);
+      switch (message.type) {
+        case "toggle-speed": toggleSpeed(); break;
+        case "speed-up": stepSpeed(1); break;
+        case "speed-down": stepSpeed(-1); break;
+        case "set-speed": applyFromPopup(message.speed); break;
+        case "get-rate": break;
+        default: return;
+      }
+      // Every handled message answers with the rate now playing, so the popup
+      // never has to guess what its own request did.
+      respond({ rate: currentRate() });
     });
   } catch {
     // Messaging unavailable; the in-player button still works.

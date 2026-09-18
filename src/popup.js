@@ -9,6 +9,7 @@ const DEFAULTS = { selectedSpeed: 2.0, autoApply: true };
 const chipsEl = document.getElementById("chips");
 const customEl = document.getElementById("custom-speed");
 const autoApplyEl = document.getElementById("auto-apply");
+const nowEl = document.getElementById("now");
 
 let selectedSpeed = DEFAULTS.selectedSpeed;
 
@@ -37,6 +38,34 @@ function setSpeed(speed) {
   selectedSpeed = Speed.clamp(speed);
   sync();
   save();
+  // Apply it to what is on screen too, rather than waiting for the next toggle.
+  send({ type: "set-speed", speed: selectedSpeed });
+}
+
+// Talks to the content script in the tab being watched. Returns null when
+// that tab is not a YouTube page, which is not an error worth showing.
+async function send(message) {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || tab.id === undefined) {
+      showRate(undefined);
+      return null;
+    }
+    const reply = await chrome.tabs.sendMessage(tab.id, message);
+    showRate(reply && reply.rate);
+    return reply;
+  } catch {
+    showRate(undefined);
+    return null;
+  }
+}
+
+function showRate(rate) {
+  if (typeof rate === "number") {
+    nowEl.innerHTML = `Now playing at <strong>${Speed.format(rate)}</strong>`;
+  } else {
+    nowEl.textContent = "Open a YouTube video to control its speed.";
+  }
 }
 
 // Keeps the chips and the number field showing the same value, whichever one
@@ -54,10 +83,9 @@ function applyCustom() {
   const typed = Number.parseFloat(customEl.value);
   // An unusable entry falls back to what was already set rather than to a
   // default, so a stray keystroke cannot lose the user's speed.
-  selectedSpeed = Speed.isValid(typed) ? Speed.round(typed) : selectedSpeed;
-  customEl.value = String(selectedSpeed);
-  sync();
-  save();
+  const next = Speed.isValid(typed) ? Speed.round(typed) : selectedSpeed;
+  customEl.value = String(next);
+  setSpeed(next);
 }
 
 // Settings are read before the chips exist, so a very early click cannot save
@@ -104,5 +132,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
   sync();
 });
 
+// The rate can change from the player button or a shortcut while this is open.
+chrome.runtime.onMessage.addListener((message) => {
+  if (message && message.type === "rate-changed") showRate(message.rate);
+});
+
 init();
 loadShortcuts();
+send({ type: "get-rate" });

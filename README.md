@@ -17,6 +17,8 @@ through the player's settings menu. Desktop YouTube only.
   `chrome://extensions/shortcuts`.
 - Shows the new speed over the video whenever it changes, which is the only
   feedback available in fullscreen, where the controls are hidden.
+- The popup reads the speed of the video in the tab you are on, and picking a
+  speed there applies it straight away instead of waiting for the next toggle.
 - Holds the speed while the player starts up. YouTube restores its own
   remembered rate a moment after the page loads, so the speed is re-applied for
   a few seconds and then left alone.
