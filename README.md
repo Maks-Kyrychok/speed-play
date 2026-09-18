@@ -69,15 +69,28 @@ immediately — no page reload needed.
 
 ## Keyboard shortcuts
 
-Chrome applies the suggested shortcuts when an extension is **installed**, not
-when it is reloaded, so changing them here has no effect on a copy that is
-already loaded; remove it and load it again, or assign them by hand.
+There are two separate paths, because the browser one cannot be relied on.
 
-All four use `Alt+Shift`. A bare `Alt`+letter is what macOS uses to type
-special characters and Chrome will not register it, and `Alt`+arrow is not
-registered either, so the keypress falls through and scrolls the page instead.
-Both look exactly like a broken extension, so the popup marks any shortcut
-Chrome left unassigned.
+**On a YouTube page**, the content script handles the keys itself: `Alt`+`A`
+or `Alt`+`S` toggles, and `Alt` with `,` `.` or the arrow keys steps by 0.25x.
+Nothing has to be reserved for this to work, it suppresses the default so
+`Alt`+`Down` no longer scrolls the page, and it stays out of the way while the
+caret is in a search or comment box. Keys are matched on `event.code`: with
+`Alt` held, macOS reports `event.key` as the character the combination would
+type, so `Alt`+`S` arrives as `ß`.
+
+**Anywhere in the browser**, `chrome.commands` provides `Alt+Shift+S` for the
+popup, `Alt+Shift+A` to toggle and `Alt+Shift+.` / `Alt+Shift+,` to step. These
+only work if the browser agreed to reserve them, which is not a given:
+Chromium forks such as Arc take many combinations for their own interface, and
+a shortcut the browser declined is silently left unassigned, after which the
+keypress falls through to the page and the extension merely looks broken. The
+popup reads the real assignments and strikes through any that are missing.
+
+Suggested shortcuts are applied when an extension is **installed**, not when
+it is reloaded, so editing them here does nothing to a copy already loaded;
+remove it and load it again, or assign them by hand at
+`chrome://extensions/shortcuts`.
 
 ## Permissions
 

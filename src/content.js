@@ -486,6 +486,53 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Keyboard, handled in the page
+   * ------------------------------------------------------------------ */
+
+  // chrome.commands only fires if the browser agreed to reserve the keys, and
+  // Chromium forks routinely take them for their own interface, leaving the
+  // extension looking broken. Handling the keys here works in any of them, and
+  // lets the default be suppressed so Alt+Down stops scrolling the page.
+  // Keyed by event.code: with Alt held, macOS reports event.key as the
+  // character the combination would type, so "s" arrives as "ß".
+  const PAGE_KEYS = {
+    KeyA: () => toggleSpeed(),
+    KeyS: () => toggleSpeed(),
+    Period: () => stepSpeed(1),
+    Comma: () => stepSpeed(-1),
+    ArrowUp: () => stepSpeed(1),
+    ArrowDown: () => stepSpeed(-1),
+  };
+
+  function isTyping(element) {
+    if (!element) return false;
+    if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") return true;
+    if (element.isContentEditable) return true;
+    // The event may come from inside a comment box rather than from the box
+    // itself, and isContentEditable is not available in every environment.
+    return (
+      typeof element.closest === "function" &&
+      !!element.closest('[contenteditable]:not([contenteditable="false"])')
+    );
+  }
+
+  function onKeyDown(event) {
+    // Alt is the shared prefix; Shift is allowed but not required.
+    if (!event.altKey || event.ctrlKey || event.metaKey) return;
+    if (isTyping(event.target)) return;
+
+    const action = PAGE_KEYS[event.code];
+    if (!action) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    action();
+  }
+
+  // Capture phase, so YouTube's own handlers do not see these first.
+  document.addEventListener("keydown", onKeyDown, true);
+
+  /* ------------------------------------------------------------------ *
    * Wiring
    * ------------------------------------------------------------------ */
 
