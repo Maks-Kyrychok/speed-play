@@ -497,12 +497,22 @@
   // character the combination would type, so "s" arrives as "ß".
   const PAGE_KEYS = {
     KeyA: () => toggleSpeed(),
-    KeyS: () => toggleSpeed(),
+    KeyS: () => openPopup(),
     Period: () => stepSpeed(1),
     Comma: () => stepSpeed(-1),
     ArrowUp: () => stepSpeed(1),
     ArrowDown: () => stepSpeed(-1),
   };
+
+  // A page cannot open the extension's popup itself; only the service worker
+  // can. Older browsers have no openPopup at all, so this may do nothing.
+  function openPopup() {
+    try {
+      chrome.runtime.sendMessage({ type: "open-popup" }).catch(() => {});
+    } catch {
+      // Extension context gone.
+    }
+  }
 
   function isTyping(element) {
     if (!element) return false;
@@ -517,8 +527,10 @@
   }
 
   function onKeyDown(event) {
-    // Alt is the shared prefix; Shift is allowed but not required.
-    if (!event.altKey || event.ctrlKey || event.metaKey) return;
+    // Plain Alt belongs to the page; Alt+Shift is what the browser-level
+    // shortcuts use. Without this split, Alt+Shift+S would both open the popup
+    // through the browser and toggle the speed here, from one keypress.
+    if (!event.altKey || event.shiftKey || event.ctrlKey || event.metaKey) return;
     if (isTyping(event.target)) return;
 
     const action = PAGE_KEYS[event.code];

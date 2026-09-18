@@ -15,3 +15,14 @@ chrome.commands.onCommand.addListener(async (command) => {
     // Not a YouTube tab, so no content script is listening. Nothing to do.
   }
 });
+
+// The popup can only be opened from an extension context, so the content
+// script asks for it rather than doing it itself.
+chrome.runtime.onMessage.addListener((message) => {
+  if (!message || message.type !== "open-popup") return;
+  try {
+    chrome.action.openPopup();
+  } catch {
+    // Not supported in this browser; the toolbar icon still works.
+  }
+});

@@ -71,13 +71,18 @@ immediately — no page reload needed.
 
 There are two separate paths, because the browser one cannot be relied on.
 
-**On a YouTube page**, the content script handles the keys itself: `Alt`+`A`
-or `Alt`+`S` toggles, and `Alt` with `,` `.` or the arrow keys steps by 0.25x.
+**On a YouTube page**, the content script handles plain `Alt` itself: `A`
+toggles, `S` opens the popup, and `,` `.` or the arrow keys step by 0.25x.
 Nothing has to be reserved for this to work, it suppresses the default so
 `Alt`+`Down` no longer scrolls the page, and it stays out of the way while the
 caret is in a search or comment box. Keys are matched on `event.code`: with
 `Alt` held, macOS reports `event.key` as the character the combination would
-type, so `Alt`+`S` arrives as `ß`.
+type, so `Alt`+`S` arrives as `ß`. Opening the popup goes through the service
+worker, since a page cannot open it directly.
+
+The two sets are split on `Shift` deliberately. Plain `Alt` is the page's,
+`Alt+Shift` is the browser's. Without that split a single `Alt+Shift+S` would
+open the popup through the browser and toggle the speed in the page at once.
 
 **Anywhere in the browser**, `chrome.commands` provides `Alt+Shift+S` for the
 popup, `Alt+Shift+A` to toggle and `Alt+Shift+.` / `Alt+Shift+,` to step. These
