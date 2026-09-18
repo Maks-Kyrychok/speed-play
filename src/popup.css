@@ -92,6 +92,57 @@ body {
   outline-offset: 2px;
 }
 
+/* Custom speed */
+
+.custom {
+  margin-top: 16px;
+}
+
+.custom-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.custom-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 0 2px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--element);
+}
+
+.custom-field:focus-within {
+  border-color: var(--accent);
+}
+
+.custom-input {
+  width: 68px;
+  padding: 7px 4px 7px 10px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+}
+
+.custom-input:focus {
+  outline: none;
+}
+
+/* The arrows crowd a field this small; stepping has its own buttons. */
+.custom-input::-webkit-outer-spin-button,
+.custom-input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.custom-unit {
+  color: var(--text-muted);
+}
+
 /* Auto-apply switch */
 
 .switch {

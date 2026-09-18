@@ -5,10 +5,12 @@
 (() => {
   "use strict";
 
+  const Speed = globalThis.SpeedyPlaySpeed;
+
   const BUTTON_ID = "speedyplay-button";
   const LABEL_ID = "speedyplay-label";
   const ACTIVE_COLOR = "#ff0000";
-  const NORMAL_SPEED = 1.0;
+  const NORMAL_SPEED = Speed.NORMAL;
   const DEFAULTS = { selectedSpeed: 2.0, autoApply: true };
 
   // YouTube remembers its own playback rate and restores it while the player
@@ -40,6 +42,8 @@
       chrome.storage.local.get(DEFAULTS, (stored) => {
         if (chrome.runtime.lastError) return;
         Object.assign(settings, stored);
+        // A speed written by an older version, or by hand, may be out of range.
+        settings.selectedSpeed = Speed.normalise(stored.selectedSpeed, DEFAULTS.selectedSpeed);
         settingsLoaded = true;
         beginReassert();
         syncButton();
@@ -53,7 +57,9 @@
   try {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== "local") return;
-      if (changes.selectedSpeed) settings.selectedSpeed = changes.selectedSpeed.newValue;
+      if (changes.selectedSpeed) {
+        settings.selectedSpeed = Speed.normalise(changes.selectedSpeed.newValue, settings.selectedSpeed);
+      }
       if (changes.autoApply) settings.autoApply = changes.autoApply.newValue;
       syncButton();
     });

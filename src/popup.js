@@ -3,18 +3,14 @@
 
 "use strict";
 
-const SPEED_OPTIONS = [0.5, 0.75, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+const Speed = globalThis.SpeedyPlaySpeed;
 const DEFAULTS = { selectedSpeed: 2.0, autoApply: true };
 
 const chipsEl = document.getElementById("chips");
+const customEl = document.getElementById("custom-speed");
 const autoApplyEl = document.getElementById("auto-apply");
 
 let selectedSpeed = DEFAULTS.selectedSpeed;
-
-// 2.0 reads better as "2×" than "2.0×", while 1.25 keeps its decimals.
-function formatSpeed(speed) {
-  return `${Number(speed.toFixed(2))}×`;
-}
 
 function save() {
   return chrome.storage.local.set({
@@ -25,41 +21,68 @@ function save() {
 
 function renderChips() {
   chipsEl.replaceChildren(
-    ...SPEED_OPTIONS.map((speed) => {
+    ...Speed.PRESETS.map((speed) => {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "chip";
-      chip.textContent = formatSpeed(speed);
+      chip.textContent = Speed.format(speed);
       chip.dataset.speed = String(speed);
-      chip.addEventListener("click", () => {
-        selectedSpeed = speed;
-        syncChips();
-        save();
-      });
+      chip.addEventListener("click", () => setSpeed(speed));
       return chip;
     }),
   );
-  syncChips();
 }
 
-function syncChips() {
+function setSpeed(speed) {
+  selectedSpeed = Speed.clamp(speed);
+  sync();
+  save();
+}
+
+// Keeps the chips and the number field showing the same value, whichever one
+// it was set from. A speed that is not a preset simply lights no chip.
+function sync() {
   for (const chip of chipsEl.children) {
     chip.setAttribute("aria-pressed", String(Number(chip.dataset.speed) === selectedSpeed));
   }
+  if (document.activeElement !== customEl) customEl.value = String(selectedSpeed);
 }
 
-// Chips are rendered only once the stored values are in, so a very early click
-// cannot save settings that were still at their defaults.
+// Runs on Enter and on losing focus, not on every keystroke: typing "1" on the
+// way to "1.5" should not be taken as a choice.
+function applyCustom() {
+  const typed = Number.parseFloat(customEl.value);
+  // An unusable entry falls back to what was already set rather than to a
+  // default, so a stray keystroke cannot lose the user's speed.
+  selectedSpeed = Speed.isValid(typed) ? Speed.round(typed) : selectedSpeed;
+  customEl.value = String(selectedSpeed);
+  sync();
+  save();
+}
+
+// Settings are read before the chips exist, so a very early click cannot save
+// values that were still at their defaults.
 async function init() {
   const stored = await chrome.storage.local.get(DEFAULTS);
-  selectedSpeed = SPEED_OPTIONS.includes(stored.selectedSpeed)
-    ? stored.selectedSpeed
-    : DEFAULTS.selectedSpeed;
+  selectedSpeed = Speed.normalise(stored.selectedSpeed, DEFAULTS.selectedSpeed);
   autoApplyEl.checked = stored.autoApply !== false;
   renderChips();
+  sync();
 }
+
+customEl.addEventListener("change", applyCustom);
+customEl.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") customEl.blur();
+});
 
 // Assigning `checked` in init() does not fire this, so there is no save loop.
 autoApplyEl.addEventListener("change", save);
+
+// Another surface may change the speed while the popup is open.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes.selectedSpeed) return;
+  selectedSpeed = Speed.normalise(changes.selectedSpeed.newValue, selectedSpeed);
+  sync();
+});
 
 init();
