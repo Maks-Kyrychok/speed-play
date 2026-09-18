@@ -195,6 +195,16 @@ body {
   line-height: 1.7;
 }
 
+.kbd-unset {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+.warn {
+  margin-top: 8px;
+  color: var(--accent);
+}
+
 kbd {
   padding: 1px 5px;
   border: 1px solid var(--border);

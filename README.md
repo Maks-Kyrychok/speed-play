@@ -12,9 +12,11 @@ through the player's settings menu. Desktop YouTube only.
   a matching round button with the current speed underneath.
 - Applies your chosen speed automatically to every new video, if you want it to.
   This is on by default and can be turned off in the popup.
-- Has keyboard shortcuts: `Alt+Shift+S` opens the popup, `Alt+S` toggles, and
-  `Alt+Up` and `Alt+Down` step by 0.25x. All four are remappable at
-  `chrome://extensions/shortcuts`.
+- Has keyboard shortcuts: `Alt+Shift+S` opens the popup, `Alt+Shift+A`
+  toggles, and `Alt+Shift+.` and `Alt+Shift+,` step by 0.25x, echoing the
+  `Shift+.` and `Shift+,` YouTube uses for the same thing. All four are
+  remappable at `chrome://extensions/shortcuts`, and the popup says so when
+  Chrome has left one unassigned.
 - Shows the new speed over the video whenever it changes, which is the only
   feedback available in fullscreen, where the controls are hidden.
 - The popup reads the speed of the video in the tab you are on, and picking a
@@ -64,6 +66,18 @@ Stepping writes back to `selectedSpeed`, so the speed the button toggles to is
 always the last one used.
 The popup saves every change straight away, and the content script picks it up
 immediately — no page reload needed.
+
+## Keyboard shortcuts
+
+Chrome applies the suggested shortcuts when an extension is **installed**, not
+when it is reloaded, so changing them here has no effect on a copy that is
+already loaded; remove it and load it again, or assign them by hand.
+
+All four use `Alt+Shift`. A bare `Alt`+letter is what macOS uses to type
+special characters and Chrome will not register it, and `Alt`+arrow is not
+registered either, so the keypress falls through and scrolls the page instead.
+Both look exactly like a broken extension, so the popup marks any shortcut
+Chrome left unassigned.
 
 ## Permissions
 
