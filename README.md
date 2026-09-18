@@ -12,6 +12,10 @@ through the player's settings menu. Desktop YouTube only.
   a matching round button with the current speed underneath.
 - Applies your chosen speed automatically to every new video, if you want it to.
   This is on by default and can be turned off in the popup.
+- Has keyboard shortcuts: `Alt+S` toggles, `Alt+Up` and `Alt+Down` step by
+  0.25x. All three are remappable at `chrome://extensions/shortcuts`.
+- Shows the new speed over the video whenever it changes, which is the only
+  feedback available in fullscreen, where the controls are hidden.
 - Holds the speed while the player starts up. YouTube restores its own
   remembered rate a moment after the page loads, so the speed is re-applied for
   a few seconds and then left alone.
@@ -44,13 +48,17 @@ cd src && zip -r ../speedyplay.zip . -x '.*' && cd ..
 | File | Purpose |
 | --- | --- |
 | `src/manifest.json` | Extension manifest (MV3) |
-| `src/content.js` | Player button, Shorts button and auto-apply |
+| `src/speed.js` | Speed validation and formatting, shared by the two below |
+| `src/content.js` | Player button, Shorts button, auto-apply and the indicator |
+| `src/background.js` | Service worker relaying the keyboard shortcuts |
 | `src/popup.html` / `.css` / `.js` | Settings popup |
 | `assets/icon.svg` | Vector master for the extension icon |
 | `assets/make-icons.py` | Renders that master to `src/icons/` and the store icon |
 | `assets/store-icon-128.png` | Listing icon: 96x96 of artwork on a 128x128 canvas |
 
 Settings live in `chrome.storage.local` under `selectedSpeed` and `autoApply`.
+Stepping writes back to `selectedSpeed`, so the speed the button toggles to is
+always the last one used.
 The popup saves every change straight away, and the content script picks it up
 immediately — no page reload needed.
 

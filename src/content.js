@@ -127,7 +127,9 @@
     // immediately be undone.
     reassertUntil = 0;
     const target = settings.selectedSpeed;
-    setSpeed(video, video.playbackRate === target ? NORMAL_SPEED : target);
+    const next = video.playbackRate === target ? NORMAL_SPEED : target;
+    setSpeed(video, next);
+    showToast(formatRate(next));
   }
 
   function maybeAutoApply() {
@@ -137,6 +139,79 @@
     // picked by hand is never overridden.
     if (!video || isAdShowing() || video.playbackRate !== NORMAL_SPEED) return;
     setSpeed(video, settings.selectedSpeed);
+  }
+
+  function persistSpeed(speed) {
+    settings.selectedSpeed = speed;
+    try {
+      chrome.storage.local.set({ selectedSpeed: speed });
+    } catch {
+      // Extension context gone; the speed still applies to this page.
+    }
+  }
+
+  // Nudges the video that is playing, rather than the saved speed, so holding
+  // the shortcut walks the rate up or down from wherever it already is.
+  function stepSpeed(direction) {
+    const video = getVideo();
+    if (!video || isAdShowing()) return;
+    reassertUntil = 0;
+    const next = Speed.step(video.playbackRate, direction);
+    setSpeed(video, next);
+    showToast(formatRate(next));
+    // Whatever was stepped to becomes the speed the button toggles to. Landing
+    // on 1x is the exception: it would leave the toggle with nothing to do.
+    if (next !== NORMAL_SPEED) persistSpeed(next);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * On-screen indicator
+   * ------------------------------------------------------------------ */
+
+  const TOAST_ID = "speedyplay-toast";
+  const TOAST_MS = 900;
+  const TOAST_CSS =
+    "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);" +
+    "z-index:2000;pointer-events:none;padding:10px 18px;border-radius:6px;" +
+    "background:rgba(0,0,0,0.75);color:#fff;" +
+    "font:700 22px/1 Roboto,Arial,sans-serif;" +
+    "opacity:0;transition:opacity 150ms ease;";
+
+  let toastTimer = null;
+
+  // The element that actually goes fullscreen.
+  function getPlayerRoot() {
+    if (!onShorts()) return document.querySelector("#movie_player");
+    const video = getVideo();
+    if (!video) return null;
+    return video.closest("#shorts-player") || video.closest("ytd-reel-video-renderer");
+  }
+
+  // Without this the shortcuts give no sign of having worked: the button is
+  // small, and in fullscreen the controls it sits in are hidden entirely.
+  function showToast(text) {
+    const root = getPlayerRoot();
+    if (!root) return;
+
+    let toast = document.getElementById(TOAST_ID);
+    if (!toast || toast.parentElement !== root) {
+      if (toast) toast.remove();
+      toast = document.createElement("div");
+      toast.id = TOAST_ID;
+      toast.style.cssText = TOAST_CSS;
+      // Fullscreen renders only the subtree of the element that was expanded,
+      // so the indicator has to live inside the player, not on the body.
+      if (getComputedStyle(root).position === "static") root.style.position = "relative";
+      root.appendChild(toast);
+    }
+
+    toast.textContent = text;
+    // Re-trigger the fade even if the previous one has not finished.
+    toast.style.opacity = "1";
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.style.opacity = "0";
+    }, TOAST_MS);
   }
 
   /* ------------------------------------------------------------------ *
@@ -427,6 +502,17 @@
     trackCurrentVideo();
     schedule();
   });
+
+  try {
+    chrome.runtime.onMessage.addListener((message) => {
+      if (!message) return;
+      if (message.type === "toggle-speed") toggleSpeed();
+      else if (message.type === "speed-up") stepSpeed(1);
+      else if (message.type === "speed-down") stepSpeed(-1);
+    });
+  } catch {
+    // Messaging unavailable; the in-player button still works.
+  }
 
   loadSettings();
   schedule();

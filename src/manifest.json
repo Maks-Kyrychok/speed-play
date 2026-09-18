@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SpeedyPlay",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Playback speed control for YouTube.",
   "permissions": [
     "storage"
@@ -34,5 +34,28 @@
       ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "toggle-speed": {
+      "suggested_key": {
+        "default": "Alt+S"
+      },
+      "description": "Toggle between normal speed and your speed"
+    },
+    "speed-up": {
+      "suggested_key": {
+        "default": "Alt+Up"
+      },
+      "description": "Speed up by 0.25x"
+    },
+    "speed-down": {
+      "suggested_key": {
+        "default": "Alt+Down"
+      },
+      "description": "Slow down by 0.25x"
+    }
+  }
 }

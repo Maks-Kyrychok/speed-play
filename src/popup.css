@@ -179,5 +179,34 @@ body {
   margin: 18px 0 0;
   color: var(--text-muted);
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.7;
+}
+
+kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--element);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #3ea6ff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

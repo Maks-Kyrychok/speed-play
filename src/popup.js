@@ -70,6 +70,25 @@ async function init() {
   sync();
 }
 
+// Shows the shortcuts the user actually has: they are remappable, and Chrome
+// leaves one unassigned if it collided with another extension.
+async function loadShortcuts() {
+  const byName = {
+    "toggle-speed": document.getElementById("sc-toggle"),
+    "speed-up": document.getElementById("sc-up"),
+    "speed-down": document.getElementById("sc-down"),
+  };
+  const commands = await chrome.commands.getAll();
+  for (const command of commands) {
+    const el = byName[command.name];
+    if (el) el.textContent = command.shortcut || "not set";
+  }
+}
+
+document.getElementById("edit-shortcut").addEventListener("click", () => {
+  chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+});
+
 customEl.addEventListener("change", applyCustom);
 customEl.addEventListener("keydown", (event) => {
   if (event.key === "Enter") customEl.blur();
@@ -86,3 +105,4 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 init();
+loadShortcuts();
