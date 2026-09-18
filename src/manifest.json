@@ -39,6 +39,11 @@
     "service_worker": "background.js"
   },
   "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      }
+    },
     "toggle-speed": {
       "suggested_key": {
         "default": "Alt+S"

@@ -12,8 +12,9 @@ through the player's settings menu. Desktop YouTube only.
   a matching round button with the current speed underneath.
 - Applies your chosen speed automatically to every new video, if you want it to.
   This is on by default and can be turned off in the popup.
-- Has keyboard shortcuts: `Alt+S` toggles, `Alt+Up` and `Alt+Down` step by
-  0.25x. All three are remappable at `chrome://extensions/shortcuts`.
+- Has keyboard shortcuts: `Alt+Shift+S` opens the popup, `Alt+S` toggles, and
+  `Alt+Up` and `Alt+Down` step by 0.25x. All four are remappable at
+  `chrome://extensions/shortcuts`.
 - Shows the new speed over the video whenever it changes, which is the only
   feedback available in fullscreen, where the controls are hidden.
 - Holds the speed while the player starts up. YouTube restores its own
