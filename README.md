@@ -1,7 +1,7 @@
 # SpeedyPlay
 
 A small Chrome extension that changes YouTube playback speed without digging
-through the player's settings menu. Desktop YouTube only.
+through the player's settings menu. Desktop only.
 
 ## What it does
 
@@ -13,8 +13,11 @@ through the player's settings menu. Desktop YouTube only.
 - Works on Shorts, where the button joins the like/comment/share column and is
   built from the same markup as its neighbours, with the speed underneath the
   way their counts are.
-- Applies your speed to each new video automatically. On by default, and can
-  be turned off in the popup.
+- Keeps a separate speed for videos, for Shorts and for YouTube Music, with
+  its own switch for applying automatically. A lecture at 2×, Shorts at
+  whatever suits them, and music left alone is one setup, not a compromise.
+- Applies that speed to each new video automatically. On by default for videos
+  and Shorts, off for music, and changeable per context in the popup.
 - Announces every speed change over the video. In fullscreen this is the only
   feedback there is, since the controls are hidden.
 - Leaves ads at normal speed.
@@ -36,8 +39,16 @@ The limits are practical ones: below 0.25× speech is unintelligible, and above
 
 ## Where it runs
 
-`www.youtube.com` only. Not YouTube Music, not the mobile site, and not
-YouTube embedded on other sites.
+`www.youtube.com` always, and `music.youtube.com` once you turn it on.
+
+Music is an **optional permission**, asked for from a button in the popup. A
+permission added to the manifest outright disables an extension for everyone
+who already has it until each of them re-accepts it, and that is too much to
+charge existing users for a feature they may not want. Granting it takes one
+click, and pages open at the time need a reload before the script reaches
+them.
+
+Not the mobile site, and not YouTube embedded on other sites.
 
 ## Keyboard shortcuts
 
@@ -100,7 +111,7 @@ version is not higher than the published one.
 | `src/manifest.json` | Extension manifest (MV3) |
 | `src/speed.js` | Validating, clamping and formatting a speed |
 | `src/settings.js` | Synced storage with debounced writes |
-| `src/content.js` | Player button, Shorts button, menu, shortcuts, indicator |
+| `src/content.js` | Context detection, buttons, menu, shortcuts, indicator |
 | `src/background.js` | Service worker: relays shortcuts, opens the popup |
 | `src/popup.html` / `.css` / `.js` | Settings popup |
 | `assets/icon.svg` | Vector master for the icon |
@@ -111,25 +122,33 @@ version is not higher than the published one.
 script, so the two can never disagree about what a valid speed is or where
 settings live.
 
+There is no button on YouTube Music yet. Its player is laid out differently,
+and guessing at the markup is what put the Shorts button in the wrong place
+the first time. Auto-apply, the shortcuts and the popup all work there.
+
 ## Settings
 
-`selectedSpeed` and `autoApply`, in `chrome.storage.sync`, so they follow you
-to your other machines. Sync needs no permission beyond the `storage` one that
-local storage already required.
+A speed and an auto-apply switch per context, under `contexts` in
+`chrome.storage.sync`, so they follow you to your other machines. Sync needs
+no permission beyond the `storage` one that local storage already required.
 
 Sync imposes a write quota, so writes are debounced into at most one a second;
-holding a stepping shortcut would otherwise write on every keypress. Settings
-saved by version 1.1 and earlier are moved out of local storage once, when the
-extension updates.
+holding a stepping shortcut would otherwise write on every keypress.
 
-Stepping writes back to `selectedSpeed`, so the speed the button toggles to is
-always the last one used — except 1×, which is never stored, as it would leave
-the toggle with nothing to toggle to.
+Settings have moved twice and both steps are carried across on update: out of
+local storage into sync, and from one speed for everything to one per context.
+The single speed becomes the video context, since that is what it described;
+Shorts and Music start from their own defaults.
+
+Stepping writes back to the speed of the context it happened in, so the speed
+the button toggles to is always the last one used there — except 1×, which is
+never stored, as it would leave the toggle with nothing to toggle to.
 
 ## Permissions
 
-- `storage` — remembers your speed and whether to apply it automatically.
-- `*://www.youtube.com/*` — the only site the extension runs on.
+- `storage` — remembers your speeds and whether to apply them automatically.
+- `*://www.youtube.com/*` — where the extension runs.
+- `*://music.youtube.com/*` — optional, asked for only if you enable Music.
 
 Nothing is collected or transmitted, and the extension makes no network
 requests at all. See [PRIVACY.md](PRIVACY.md), published at

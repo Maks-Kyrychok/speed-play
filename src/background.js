@@ -35,20 +35,34 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   }
 });
 
-// Settings used to live in chrome.storage.local. Carry them across once, so
-// the speed someone already chose survives the move to synced storage.
+// Settings moved twice: out of local storage into sync, and from one speed
+// for everything to one per context. Both are carried across on update, so a
+// speed someone already chose is not lost.
 chrome.runtime.onInstalled.addListener(async () => {
-  const keys = ["selectedSpeed", "autoApply"];
+  const FLAT = ["selectedSpeed", "autoApply"];
   try {
-    const synced = await chrome.storage.sync.get(keys);
-    if (keys.some((key) => key in synced)) return;
+    const synced = await chrome.storage.sync.get(["contexts", ...FLAT]);
+    if (synced.contexts) return;
 
-    const legacy = await chrome.storage.local.get(keys);
-    if (!keys.some((key) => key in legacy)) return;
+    let flat = FLAT.some((key) => key in synced) ? synced : null;
+    if (!flat) {
+      const local = await chrome.storage.local.get(FLAT);
+      if (FLAT.some((key) => key in local)) flat = local;
+    }
+    if (!flat) return;
 
-    await chrome.storage.sync.set(legacy);
-    await chrome.storage.local.remove(keys);
+    const speed = typeof flat.selectedSpeed === "number" ? flat.selectedSpeed : 2;
+    const autoApply = flat.autoApply !== false;
+    await chrome.storage.sync.set({
+      contexts: {
+        video: { speed, autoApply },
+        shorts: { speed: 1.5, autoApply: true },
+        music: { speed: 1, autoApply: false },
+      },
+    });
+    await chrome.storage.sync.remove(FLAT);
+    await chrome.storage.local.remove(FLAT);
   } catch {
-    // Sync unavailable. The settings stay in local, which still reads back.
+    // Sync unavailable. The old values stay put and still read back.
   }
 });

@@ -10,28 +10,39 @@
     <h1 class="title">Speed Settings</h1>
   </header>
 
+  <nav class="tabs" id="tabs" aria-label="Where these settings apply"></nav>
+
   <main class="content">
     <p class="now" id="now" role="status" aria-live="polite">&nbsp;</p>
 
-    <p class="label" id="speed-label">Toggle speed</p>
-    <div class="chips" id="chips" aria-labelledby="speed-label"></div>
-
-    <div class="custom">
-      <label class="custom-label" for="custom-speed">Or set your own</label>
-      <div class="custom-field">
-        <input type="number" id="custom-speed" class="custom-input"
-               min="0.25" max="4" step="0.05" inputmode="decimal">
-        <span class="custom-unit" aria-hidden="true">&times;</span>
-      </div>
+    <div id="permission" class="permission" hidden>
+      <p class="permission-text">
+        SpeedyPlay does not have access to YouTube Music yet.
+      </p>
+      <button type="button" class="grant" id="grant">Enable for YouTube Music</button>
     </div>
 
-    <label class="switch">
-      <input type="checkbox" id="auto-apply">
-      <span class="switch-text">
-        Apply automatically to new videos
-        <span class="switch-hint">Otherwise the speed is used only when you toggle it.</span>
-      </span>
-    </label>
+    <div id="controls">
+      <p class="label" id="speed-label">Toggle speed</p>
+      <div class="chips" id="chips" aria-labelledby="speed-label"></div>
+
+      <div class="custom">
+        <label class="custom-label" for="custom-speed">Or set your own</label>
+        <div class="custom-field">
+          <input type="number" id="custom-speed" class="custom-input"
+                 min="0.25" max="4" step="0.05" inputmode="decimal">
+          <span class="custom-unit" aria-hidden="true">&times;</span>
+        </div>
+      </div>
+
+      <label class="switch">
+        <input type="checkbox" id="auto-apply">
+        <span class="switch-text">
+          <span id="auto-apply-label">Apply automatically to new videos</span>
+          <span class="switch-hint">Otherwise the speed is used only when you toggle it.</span>
+        </span>
+      </label>
+    </div>
 
     <p class="hint">
       On any YouTube page hold <kbd>Alt</kbd>: <kbd>A</kbd> toggles,

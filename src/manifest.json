@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SpeedyPlay",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Playback speed control for YouTube.",
   "permissions": [
     "storage"
@@ -27,6 +27,17 @@
     {
       "matches": [
         "*://www.youtube.com/*"
+      ],
+      "js": [
+        "speed.js",
+        "settings.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://music.youtube.com/*"
       ],
       "js": [
         "speed.js",
@@ -63,5 +74,8 @@
       },
       "description": "Slow down by 0.25x"
     }
-  }
+  },
+  "optional_host_permissions": [
+    "*://music.youtube.com/*"
+  ]
 }

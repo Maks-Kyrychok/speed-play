@@ -12,7 +12,14 @@
   const LABEL_ID = "speedyplay-label";
   const ACTIVE_COLOR = "#ff0000";
   const NORMAL_SPEED = Speed.NORMAL;
-  const DEFAULTS = { selectedSpeed: 2.0, autoApply: true };
+  // Which of the three places this page is. Shorts and ordinary videos share
+  // a host, so the path tells them apart; Music is a site of its own.
+  const CONTEXT =
+    location.hostname === "music.youtube.com"
+      ? "music"
+      : location.pathname.startsWith("/shorts/")
+        ? "shorts"
+        : "video";
 
   // YouTube remembers its own playback rate and restores it while the player
   // finishes initialising, which lands after our first attempt and overwrites
@@ -20,7 +27,10 @@
   // and left alone once that window closes.
   const REASSERT_MS = 5000;
 
-  const settings = { ...DEFAULTS };
+  // Every context, so a change made elsewhere can be taken in whole; `active`
+  // is the one this page belongs to.
+  let settings = Settings.normalise(null);
+  const active = () => settings[CONTEXT];
 
   // Auto-apply waits for the stored settings, otherwise the first video of the
   // session would briefly get the default speed instead of the chosen one.
@@ -40,10 +50,7 @@
 
   async function loadSettings() {
     try {
-      const stored = await Settings.load(DEFAULTS);
-      Object.assign(settings, stored);
-      // A speed written by an older version, or by hand, may be out of range.
-      settings.selectedSpeed = Speed.normalise(stored.selectedSpeed, DEFAULTS.selectedSpeed);
+      settings = await Settings.load();
       settingsLoaded = true;
       beginReassert();
       syncButton();
@@ -53,11 +60,8 @@
     }
   }
 
-  Settings.onChange((changes) => {
-    if (changes.selectedSpeed) {
-      settings.selectedSpeed = Speed.normalise(changes.selectedSpeed.newValue, settings.selectedSpeed);
-    }
-    if (changes.autoApply) settings.autoApply = changes.autoApply.newValue;
+  Settings.onChange((next) => {
+    settings = next;
     syncButton();
   });
 
@@ -65,7 +69,8 @@
    * Player access
    * ------------------------------------------------------------------ */
 
-  const onShorts = () => location.pathname.startsWith("/shorts/");
+  const onShorts = () => CONTEXT === "shorts";
+  const onMusic = () => CONTEXT === "music";
 
   // Shorts stacks reels on top of each other. Rather than rely on YouTube's
   // internal attribute names, pick the reel that is actually playing, falling
@@ -87,6 +92,9 @@
   // hover previews), so prefer the one inside the main player.
   function getVideo() {
     if (onShorts()) return getShortsVideo();
+    // YouTube Music plays through a single element and has no miniplayer to
+    // be confused with.
+    if (onMusic()) return document.querySelector("video");
     return (
       document.querySelector("#movie_player video.html5-main-video") ||
       document.querySelector("video.html5-main-video") ||
@@ -125,25 +133,26 @@
     // An explicit toggle wins: stop re-applying, or dropping back to 1x would
     // immediately be undone.
     reassertUntil = 0;
-    const target = settings.selectedSpeed;
+    const target = active().speed;
     const next = video.playbackRate === target ? NORMAL_SPEED : target;
     setSpeed(video, next);
     showToast(formatRate(next));
   }
 
   function maybeAutoApply() {
-    if (!settingsLoaded || !settings.autoApply) return;
+    if (!settingsLoaded || !active().autoApply) return;
     const video = getVideo();
     // Only step in while the video is at normal speed, so a speed the viewer
     // picked by hand is never overridden.
     if (!video || isAdShowing() || video.playbackRate !== NORMAL_SPEED) return;
-    setSpeed(video, settings.selectedSpeed);
+    setSpeed(video, active().speed);
   }
 
   function persistSpeed(speed) {
-    settings.selectedSpeed = speed;
-    // Debounced: holding a shortcut would otherwise write on every keypress.
-    Settings.save({ selectedSpeed: speed });
+    active().speed = speed;
+    // The whole set is written, since that is how it is stored; debounced,
+    // because holding a shortcut would otherwise write on every keypress.
+    Settings.save(settings);
   }
 
   // Nudges the video that is playing, rather than the saved speed, so holding
@@ -245,6 +254,7 @@
   // sit in one that also contains the action column it is anchored to, which
   // on Shorts is the reel rather than the player inside it.
   function getMenuRoot() {
+    if (onMusic()) return document.querySelector("#movie_player") || document.body;
     if (!onShorts()) return document.querySelector("#movie_player");
     const video = getVideo();
     if (!video) return null;
@@ -304,6 +314,11 @@
 
   // The element that actually goes fullscreen.
   function getPlayerRoot() {
+    if (onMusic()) {
+      // Music has no player box to hang things on, and nothing there goes
+      // fullscreen, so the indicator sits on the page instead.
+      return document.querySelector("#movie_player") || document.body;
+    }
     if (!onShorts()) return document.querySelector("#movie_player");
     const video = getVideo();
     if (!video) return null;
@@ -324,7 +339,11 @@
       toast.style.cssText = TOAST_CSS;
       // Fullscreen renders only the subtree of the element that was expanded,
       // so the indicator has to live inside the player, not on the body.
-      if (getComputedStyle(root).position === "static") root.style.position = "relative";
+      if (root === document.body) {
+        toast.style.position = "fixed";
+      } else if (getComputedStyle(root).position === "static") {
+        root.style.position = "relative";
+      }
       root.appendChild(toast);
     }
 
@@ -505,32 +524,32 @@
     if (!button) return;
     const video = getVideo();
     const rate = video ? video.playbackRate : NORMAL_SPEED;
-    const active = rate !== NORMAL_SPEED;
+    const spedUp = rate !== NORMAL_SPEED;
 
     // Cleared rather than set to a colour, so YouTube's own styling applies
     // while the video runs at normal speed.
     const path = button.querySelector("path");
-    if (path) path.style.fill = active ? ACTIVE_COLOR : "";
+    if (path) path.style.fill = spedUp ? ACTIVE_COLOR : "";
 
     // On the player bar the icon gives way to the number, so the speed can be
     // read at a glance instead of only from the tooltip.
     const icon = button.querySelector('[data-sp="icon"]');
     const text = button.querySelector('[data-sp="rate"]');
     if (icon && text) {
-      icon.style.display = active ? "none" : "";
-      text.style.display = active ? "flex" : "none";
+      icon.style.display = spedUp ? "none" : "";
+      text.style.display = spedUp ? "flex" : "none";
       text.textContent = formatRate(rate);
     }
 
     const label = document.getElementById(LABEL_ID);
     if (label) {
       label.textContent = formatRate(rate);
-      label.style.color = active ? ACTIVE_COLOR : "";
+      label.style.color = spedUp ? ACTIVE_COLOR : "";
     }
 
-    const title = active
+    const title = spedUp
       ? `SpeedyPlay: ${formatRate(rate)} — click for 1×`
-      : `SpeedyPlay: click for ${formatRate(settings.selectedSpeed)}`;
+      : `SpeedyPlay: click for ${formatRate(active().speed)}`;
     button.title = title;
     button.setAttribute("aria-label", title);
   }
@@ -565,6 +584,14 @@
   }
 
   function ensureButton() {
+    // No button on Music yet: its player is laid out differently and guessing
+    // at the markup is what made the Shorts button land in the wrong place.
+    // Auto-apply, the shortcuts and the popup all work there regardless.
+    if (onMusic()) {
+      const stale = getRoot();
+      if (stale) stale.remove();
+      return;
+    }
     const shorts = onShorts();
     const variant = shorts ? "shorts" : "player";
     const host = shorts

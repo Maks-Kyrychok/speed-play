@@ -1,55 +1,54 @@
-// SpeedyPlay popup: picks the speed the in-player button switches to.
-// Every change is saved right away, so there is nothing to confirm.
+// SpeedyPlay popup. Speeds are kept per context, so the popup edits one at a
+// time and opens on whichever the current tab belongs to.
 
 "use strict";
 
 const Speed = globalThis.SpeedyPlaySpeed;
 const Settings = globalThis.SpeedyPlaySettings;
-const DEFAULTS = { selectedSpeed: 2.0, autoApply: true };
 
+const MUSIC_ORIGIN = "*://music.youtube.com/*";
+
+const tabsEl = document.getElementById("tabs");
 const chipsEl = document.getElementById("chips");
 const customEl = document.getElementById("custom-speed");
 const autoApplyEl = document.getElementById("auto-apply");
+const autoApplyLabelEl = document.getElementById("auto-apply-label");
 const nowEl = document.getElementById("now");
+const controlsEl = document.getElementById("controls");
+const permissionEl = document.getElementById("permission");
 
-let selectedSpeed = DEFAULTS.selectedSpeed;
+let contexts = Settings.normalise(null);
+let selected = "video";
+
+const current = () => contexts[selected];
 
 function save() {
   // The popup can be dismissed at any moment, so nothing here waits.
-  Settings.saveNow({ selectedSpeed, autoApply: autoApplyEl.checked });
+  Settings.saveNow(contexts);
 }
 
-function renderChips() {
-  chipsEl.replaceChildren(
-    ...Speed.PRESETS.map((speed) => {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "chip";
-      chip.textContent = Speed.format(speed);
-      chip.dataset.speed = String(speed);
-      chip.addEventListener("click", () => setSpeed(speed));
-      return chip;
-    }),
-  );
-}
+/* -------------------------------------------------------------------- *
+ * Talking to the tab being watched
+ * -------------------------------------------------------------------- */
 
-function setSpeed(speed) {
-  selectedSpeed = Speed.clamp(speed);
-  sync();
-  save();
-  // Apply it to what is on screen too, rather than waiting for the next toggle.
-  send({ type: "set-speed", speed: selectedSpeed });
-}
-
-// Talks to the content script in the tab being watched. Returns null when
-// that tab is not a YouTube page, which is not an error worth showing.
-async function send(message) {
+async function activeTab() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || tab.id === undefined) {
-      showRate(undefined);
-      return null;
-    }
+    return tab && tab.id !== undefined ? tab : null;
+  } catch {
+    return null;
+  }
+}
+
+// Returns null when that tab is not a YouTube page, which is not an error
+// worth showing.
+async function send(message) {
+  const tab = await activeTab();
+  if (!tab) {
+    showRate(undefined);
+    return null;
+  }
+  try {
     const reply = await chrome.tabs.sendMessage(tab.id, message);
     showRate(reply && reply.rate);
     return reply;
@@ -67,13 +66,98 @@ function showRate(rate) {
   }
 }
 
-// Keeps the chips and the number field showing the same value, whichever one
-// it was set from. A speed that is not a preset simply lights no chip.
-function sync() {
-  for (const chip of chipsEl.children) {
-    chip.setAttribute("aria-pressed", String(Number(chip.dataset.speed) === selectedSpeed));
+/* -------------------------------------------------------------------- *
+ * Context tabs
+ * -------------------------------------------------------------------- */
+
+function renderTabs() {
+  tabsEl.replaceChildren(
+    ...Settings.CONTEXTS.map((name) => {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "tab";
+      tab.textContent = Settings.LABELS[name];
+      tab.dataset.context = name;
+      tab.addEventListener("click", () => selectContext(name));
+      return tab;
+    }),
+  );
+}
+
+function selectContext(name) {
+  selected = name;
+  sync();
+  refreshPermissionNotice();
+}
+
+// Guesses from the URL of the tab being watched, so the popup opens on what
+// the viewer is actually looking at.
+function contextOf(url) {
+  if (!url) return null;
+  try {
+    const { hostname, pathname } = new URL(url);
+    if (hostname === "music.youtube.com") return "music";
+    if (!hostname.endsWith("youtube.com")) return null;
+    return pathname.startsWith("/shorts/") ? "shorts" : "video";
+  } catch {
+    return null;
   }
-  if (document.activeElement !== customEl) customEl.value = String(selectedSpeed);
+}
+
+/* -------------------------------------------------------------------- *
+ * Access to YouTube Music
+ * -------------------------------------------------------------------- */
+
+// Music is an optional permission: requiring it up front would have disabled
+// the extension for everyone who already had it, pending re-acceptance.
+async function hasMusicAccess() {
+  try {
+    return await chrome.permissions.contains({ origins: [MUSIC_ORIGIN] });
+  } catch {
+    return false;
+  }
+}
+
+async function refreshPermissionNotice() {
+  const needed = selected === "music" && !(await hasMusicAccess());
+  permissionEl.hidden = !needed;
+  controlsEl.hidden = needed;
+}
+
+document.getElementById("grant").addEventListener("click", async () => {
+  try {
+    // Must be called straight from the click, or Chrome refuses the prompt.
+    const granted = await chrome.permissions.request({ origins: [MUSIC_ORIGIN] });
+    if (granted) refreshPermissionNotice();
+  } catch {
+    // Prompt unavailable; the notice stays up.
+  }
+});
+
+/* -------------------------------------------------------------------- *
+ * Speed controls
+ * -------------------------------------------------------------------- */
+
+function renderChips() {
+  chipsEl.replaceChildren(
+    ...Speed.PRESETS.map((speed) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.textContent = Speed.format(speed);
+      chip.dataset.speed = String(speed);
+      chip.addEventListener("click", () => setSpeed(speed));
+      return chip;
+    }),
+  );
+}
+
+function setSpeed(speed) {
+  current().speed = Speed.clamp(speed);
+  sync();
+  save();
+  // Only the context on screen can be applied to what is on screen.
+  if (selected === openedOn) send({ type: "set-speed", speed: current().speed });
 }
 
 // Runs on Enter and on losing focus, not on every keystroke: typing "1" on the
@@ -81,24 +165,36 @@ function sync() {
 function applyCustom() {
   const typed = Number.parseFloat(customEl.value);
   // An unusable entry falls back to what was already set rather than to a
-  // default, so a stray keystroke cannot lose the user's speed.
-  const next = Speed.isValid(typed) ? Speed.round(typed) : selectedSpeed;
+  // default, so a stray keystroke cannot lose the speed.
+  const next = Speed.isValid(typed) ? Speed.round(typed) : current().speed;
   customEl.value = String(next);
   setSpeed(next);
 }
 
-// Settings are read before the chips exist, so a very early click cannot save
-// values that were still at their defaults.
-async function init() {
-  const stored = await Settings.load(DEFAULTS);
-  selectedSpeed = Speed.normalise(stored.selectedSpeed, DEFAULTS.selectedSpeed);
-  autoApplyEl.checked = stored.autoApply !== false;
-  renderChips();
-  sync();
+function sync() {
+  for (const tab of tabsEl.children) {
+    tab.setAttribute("aria-selected", String(tab.dataset.context === selected));
+  }
+  for (const chip of chipsEl.children) {
+    chip.setAttribute("aria-pressed", String(Number(chip.dataset.speed) === current().speed));
+  }
+  if (document.activeElement !== customEl) customEl.value = String(current().speed);
+  autoApplyEl.checked = current().autoApply;
+  autoApplyLabelEl.textContent =
+    selected === "music"
+      ? "Apply automatically to new tracks"
+      : "Apply automatically to new videos";
 }
 
-document.getElementById("edit-shortcut").addEventListener("click", () => {
-  chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+/* -------------------------------------------------------------------- *
+ * Wiring
+ * -------------------------------------------------------------------- */
+
+let openedOn = null;
+
+autoApplyEl.addEventListener("change", () => {
+  current().autoApply = autoApplyEl.checked;
+  save();
 });
 
 customEl.addEventListener("change", applyCustom);
@@ -106,14 +202,8 @@ customEl.addEventListener("keydown", (event) => {
   if (event.key === "Enter") customEl.blur();
 });
 
-// Assigning `checked` in init() does not fire this, so there is no save loop.
-autoApplyEl.addEventListener("change", save);
-
-// Another surface may change the speed while the popup is open.
-Settings.onChange((changes) => {
-  if (!changes.selectedSpeed) return;
-  selectedSpeed = Speed.normalise(changes.selectedSpeed.newValue, selectedSpeed);
-  sync();
+document.getElementById("edit-shortcut").addEventListener("click", () => {
+  chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
 });
 
 // The rate can change from the player button or a shortcut while this is open.
@@ -121,5 +211,24 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message && message.type === "rate-changed") showRate(message.rate);
 });
 
+// So can the settings, from another window or another machine.
+Settings.onChange((next) => {
+  contexts = next;
+  sync();
+});
+
+// Controls are rendered only once the stored values are in, so an early click
+// cannot save settings that were still at their defaults.
+async function init() {
+  contexts = await Settings.load();
+  const tab = await activeTab();
+  openedOn = contextOf(tab && tab.url);
+  selected = openedOn || "video";
+  renderTabs();
+  renderChips();
+  sync();
+  await refreshPermissionNotice();
+  send({ type: "get-rate" });
+}
+
 init();
-send({ type: "get-rate" });
