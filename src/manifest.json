@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SpeedyPlay",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Playback speed control for YouTube.",
   "permissions": [
     "storage"

@@ -8,8 +8,8 @@ through the player's settings menu. Desktop YouTube only.
 - Adds a speed button to the YouTube player controls, next to the built-in
   ones. Clicking it flips between normal speed and your chosen speed, and it
   shows the current rate in place of its icon while the video is sped up.
-- Right-clicking that button opens a speed menu in the player itself, so
-  picking a specific speed does not mean reaching for the toolbar.
+- Right-clicking that button opens a speed menu, on watch pages and on Shorts
+  alike, so picking a specific speed does not mean reaching for the toolbar.
 - Works on Shorts too, where it joins the like/dislike/comment/share column as
   a matching round button with the current speed underneath.
 - Applies your chosen speed automatically to every new video, if you want it to.

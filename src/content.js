@@ -241,12 +241,22 @@
     menu.style.bottom = `${rootBox.bottom - buttonBox.top + margin}px`;
   }
 
+  // The indicator belongs in the element that goes fullscreen; the menu has to
+  // sit in one that also contains the action column it is anchored to, which
+  // on Shorts is the reel rather than the player inside it.
+  function getMenuRoot() {
+    if (!onShorts()) return document.querySelector("#movie_player");
+    const video = getVideo();
+    if (!video) return null;
+    return video.closest("ytd-reel-video-renderer") || video.closest("#shorts-player");
+  }
+
   function toggleMenu() {
     if (menuIsOpen()) {
       closeMenu();
       return;
     }
-    const root = getPlayerRoot();
+    const root = getMenuRoot();
     const button = document.getElementById(BUTTON_ID);
     if (!root || !button) return;
 
@@ -345,7 +355,7 @@
   };
 
   const CHEVRONS_SVG =
-    '<svg viewBox="0 0 36 36" style="pointer-events:none;width:100%;height:100%">' +
+    '<svg data-sp="icon" viewBox="0 0 36 36" style="pointer-events:none;width:100%;height:100%">' +
     '<path class="ytp-svg-fill" d="M 11 24 L 19 18 L 11 12 Z M 19 24 L 27 18 L 19 12 Z"></path>' +
     "</svg>";
 
@@ -372,10 +382,15 @@
     button.style.cssText = PLAYER_BUTTON_CSS;
     // Both children are built once and shown in turn, rather than rewriting
     // the markup on every sync, which runs whenever the page mutates.
+    // The icon stays a direct child of the flex button, the way YouTube's own
+    // icons are. Wrapping it in a span left it undersized and sitting low,
+    // because the wrapper took its height from its contents instead of the
+    // button.
     button.innerHTML =
-      `<span data-sp="icon" style="display:flex;width:100%;height:100%">${CHEVRONS_SVG}</span>` +
-      '<span data-sp="rate" style="display:none;color:' + ACTIVE_COLOR + ';' +
-      "font:700 12px/1 Roboto,Arial,sans-serif\"></span>";
+      CHEVRONS_SVG +
+      '<span data-sp="rate" style="display:none;align-items:center;' +
+      'justify-content:center;width:100%;height:100%;' +
+      `color:${ACTIVE_COLOR};font:700 12px/1 Roboto,Arial,sans-serif"></span>`;
     button.addEventListener("click", onToggle);
     button.addEventListener("contextmenu", (event) => {
       // Otherwise YouTube's own context menu covers the player.
@@ -465,6 +480,11 @@
       `<path d="${SHORTS_ICON.path}"></path>` +
       "</svg></div></span></span></div>";
     button.addEventListener("click", onToggle);
+    button.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleMenu();
+    });
 
     const labelBox = document.createElement("div");
     labelBox.className = css.labelBox;
@@ -497,7 +517,7 @@
     const icon = button.querySelector('[data-sp="icon"]');
     const text = button.querySelector('[data-sp="rate"]');
     if (icon && text) {
-      icon.style.display = active ? "none" : "flex";
+      icon.style.display = active ? "none" : "";
       text.style.display = active ? "flex" : "none";
       text.textContent = formatRate(rate);
     }
@@ -637,7 +657,14 @@
   // can. Older browsers have no openPopup at all, so this may do nothing.
   function openPopup() {
     try {
-      chrome.runtime.sendMessage({ type: "open-popup" }).catch(() => {});
+      chrome.runtime
+        .sendMessage({ type: "open-popup" })
+        .then((reply) => {
+          // Not every browser lets an extension open its own popup. Saying so
+          // beats the key looking as though it did nothing.
+          if (!reply || !reply.opened) showToast("Open SpeedyPlay from the toolbar");
+        })
+        .catch(() => {});
     } catch {
       // Extension context gone.
     }

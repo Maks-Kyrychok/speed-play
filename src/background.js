@@ -18,12 +18,20 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 // The popup can only be opened from an extension context, so the content
 // script asks for it rather than doing it itself.
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (!message || message.type !== "open-popup") return;
   try {
-    chrome.action.openPopup();
+    const opening = chrome.action.openPopup();
+    // openPopup reports failure by rejecting, which a plain try/catch around
+    // the call never sees; the rejection then surfaces as an uncaught error.
+    if (opening && typeof opening.catch === "function") {
+      opening.then(() => respond({ opened: true })).catch(() => respond({ opened: false }));
+      return true;
+    }
+    respond({ opened: true });
   } catch {
-    // Not supported in this browser; the toolbar icon still works.
+    // Some builds throw synchronously instead of rejecting.
+    respond({ opened: false });
   }
 });
 
