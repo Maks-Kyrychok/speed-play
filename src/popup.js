@@ -119,16 +119,21 @@ async function hasMusicAccess() {
 }
 
 async function refreshPermissionNotice() {
-  const needed = selected === "music" && !(await hasMusicAccess());
+  const granted = await hasMusicAccess();
+  const needed = selected === "music" && !granted;
   permissionEl.hidden = !needed;
   controlsEl.hidden = needed;
+
+  // Marked on the tab as well, so it is visible without opening it first.
+  const musicTab = tabsEl.querySelector('[data-context="music"]');
+  if (musicTab) musicTab.classList.toggle("tab-locked", !granted);
 }
 
 document.getElementById("grant").addEventListener("click", async () => {
   try {
     // Must be called straight from the click, or Chrome refuses the prompt.
     const granted = await chrome.permissions.request({ origins: [MUSIC_ORIGIN] });
-    if (granted) refreshPermissionNotice();
+    if (granted) await refreshPermissionNotice();
   } catch {
     // Prompt unavailable; the notice stays up.
   }

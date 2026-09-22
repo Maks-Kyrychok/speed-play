@@ -122,6 +122,18 @@ body {
   font-weight: 600;
 }
 
+/* A dot on a tab that still needs access granted. */
+.tab-locked::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 1px;
+}
+
 .tab:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
