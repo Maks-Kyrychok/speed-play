@@ -78,6 +78,12 @@ The two sets are split on `Shift` deliberately: plain `Alt` belongs to the
 page, `Alt+Shift` to the browser. Without that split one `Alt+Shift+S` would
 open the popup through the browser and toggle the speed in the page at once.
 
+`Alt`+`S` asks the service worker to open the popup, since a page cannot open
+it itself. Not every browser allows that, and some resolve the call without
+showing anything, so the worker checks whether a popup context actually
+appeared rather than trusting the answer; when none did, the page says to use
+the toolbar icon instead.
+
 Two things worth knowing if a shortcut appears dead:
 
 - Suggested shortcuts are assigned when an extension is **installed**, not
@@ -112,7 +118,7 @@ version is not higher than the published one.
 | `src/speed.js` | Validating, clamping and formatting a speed |
 | `src/settings.js` | Synced storage with debounced writes |
 | `src/content.js` | Context detection, buttons, menu, shortcuts, indicator |
-| `src/background.js` | Service worker: relays shortcuts, opens the popup |
+| `src/background.js` | Service worker: relays shortcuts, opens the popup, migrates settings |
 | `src/popup.html` / `.css` / `.js` | Settings popup |
 | `assets/icon.svg` | Vector master for the icon |
 | `assets/make-icons.py` | Renders it to `src/icons/` and to the store icon |

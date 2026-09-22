@@ -16,23 +16,53 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
+// Some browsers report openPopup's failure on a promise of their own rather
+// than the one they hand back: the call resolves, and the rejection arrives
+// here with nothing to attach a handler to. Only that one message is
+// swallowed, so a real fault elsewhere still shows up.
+self.addEventListener("unhandledrejection", (event) => {
+  const message = event.reason && event.reason.message;
+  if (typeof message === "string" && message.toLowerCase().includes("open popup")) {
+    event.preventDefault();
+  }
+});
+
 // The popup can only be opened from an extension context, so the content
 // script asks for it rather than doing it itself.
-chrome.runtime.onMessage.addListener((message, _sender, respond) => {
-  if (!message || message.type !== "open-popup") return;
+
+const POPUP_SETTLE_MS = 150;
+
+// openPopup resolving does not mean a popup appeared, so the answer comes
+// from looking rather than from trusting the call.
+async function popupIsOpen() {
+  if (!chrome.runtime.getContexts) return null; // no way to tell here
+  try {
+    const contexts = await chrome.runtime.getContexts({ contextTypes: ["POPUP"] });
+    return contexts.length > 0;
+  } catch {
+    return null;
+  }
+}
+
+async function openPopup() {
   try {
     const opening = chrome.action.openPopup();
-    // openPopup reports failure by rejecting, which a plain try/catch around
-    // the call never sees; the rejection then surfaces as an uncaught error.
-    if (opening && typeof opening.catch === "function") {
-      opening.then(() => respond({ opened: true })).catch(() => respond({ opened: false }));
-      return true;
-    }
-    respond({ opened: true });
+    if (opening && typeof opening.then === "function") await opening;
   } catch {
-    // Some builds throw synchronously instead of rejecting.
-    respond({ opened: false });
+    return { opened: false };
   }
+  // Long enough for the popup's own context to register, short enough not to
+  // be noticed when it did not open.
+  await new Promise((resolve) => setTimeout(resolve, POPUP_SETTLE_MS));
+  const open = await popupIsOpen();
+  // null is "cannot tell", which is not the same as failure.
+  return { opened: open !== false };
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+  if (!message || message.type !== "open-popup") return;
+  openPopup().then(respond);
+  return true;
 });
 
 // Settings moved twice: out of local storage into sync, and from one speed
