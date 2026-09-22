@@ -13,6 +13,9 @@ through the player's settings menu. Desktop only.
 - Works on Shorts, where the button joins the like/comment/share column and is
   built from the same markup as its neighbours, with the speed underneath the
   way their counts are.
+- Works on YouTube Music, where the button goes on the player bar. Music has a
+  speed control of its own, but it sits two clicks deep inside the overflow
+  menu; this one is on the bar.
 - Keeps a separate speed for videos, for Shorts and for YouTube Music, with
   its own switch for applying automatically. A lecture at 2×, Shorts at
   whatever suits them, and music left alone is one setup, not a compromise.
@@ -128,9 +131,15 @@ version is not higher than the published one.
 script, so the two can never disagree about what a valid speed is or where
 settings live.
 
-There is no button on YouTube Music yet. Its player is laid out differently,
-and guessing at the markup is what put the Shorts button in the wrong place
-the first time. Auto-apply, the shortcuts and the popup all work there.
+Each surface builds its button from the markup of the native controls beside
+it, reading their class names off a live sibling rather than hardcoding them,
+so the buttons keep matching when YouTube renames things. Where none of the
+expected containers is found, no button is injected; auto-apply, the shortcuts
+and the popup do not depend on it.
+
+YouTube Music carries a desktop player bar and a mobile one in the page at
+once, and its right-hand controls collapse into an overflow menu as the window
+narrows, so the host is chosen by which candidate actually occupies space.
 
 ## Settings
 

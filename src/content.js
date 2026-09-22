@@ -254,7 +254,10 @@
   // sit in one that also contains the action column it is anchored to, which
   // on Shorts is the reel rather than the player inside it.
   function getMenuRoot() {
-    if (onMusic()) return document.querySelector("#movie_player") || document.body;
+    if (onMusic()) {
+      const host = getMusicHost();
+      return (host && host.closest("ytmusic-player-bar")) || document.body;
+    }
     if (!onShorts()) return document.querySelector("#movie_player");
     const video = getVideo();
     if (!video) return null;
@@ -567,6 +570,82 @@
     return box.height > 0 && box.top < window.innerHeight && box.bottom > 0;
   };
 
+  // YouTube Music's own speed control is two clicks deep, inside the overflow
+  // menu, so a button on the bar itself is worth having. Class names of one
+  // native control, read off a live button where possible; the values here are
+  // only the fallback.
+  const MUSIC_CLASSES = {
+    wrap: "style-scope ytmusic-player-bar",
+    button: "style-scope yt-icon-button",
+    icon: "yt-icon-shape style-scope yt-icon ytSpecIconShapeHost",
+  };
+
+  function musicClasses(host) {
+    const sample = host.querySelector("yt-icon-button");
+    if (!sample) return MUSIC_CLASSES;
+    const cls = (el, fallback) => (el && el.className ? el.className : fallback);
+    return {
+      wrap: cls(sample, MUSIC_CLASSES.wrap),
+      button: cls(sample.querySelector("button"), MUSIC_CLASSES.button),
+      icon: cls(sample.querySelector(".yt-icon-shape"), MUSIC_CLASSES.icon),
+    };
+  }
+
+  // The page carries a desktop bar and a mobile one at once, only one of which
+  // is laid out, so the host is chosen by what actually occupies space.
+  // In preference order, not one combined selector: that returns elements in
+  // document order, and .right-controls is the parent of the group we want.
+  const MUSIC_HOST_SELECTORS = [
+    "ytmusic-player-bar div.right-controls-buttons",
+    "ytmusic-player-bar div.right-controls",
+  ];
+
+  function getMusicHost() {
+    for (const selector of MUSIC_HOST_SELECTORS) {
+      const group = [...document.querySelectorAll(selector)].find(
+        (candidate) => candidate.getBoundingClientRect().width > 0,
+      );
+      if (group) return group;
+    }
+    return null;
+  }
+
+  function buildMusicButton(host) {
+    const css = musicClasses(host);
+
+    // A plain div rather than <yt-icon-button>: constructing YouTube's own
+    // custom element risks their framework re-rendering over our contents.
+    const wrap = document.createElement("div");
+    wrap.className = css.wrap;
+    wrap.style.cssText = "display:inline-flex;align-items:center;";
+
+    const button = document.createElement("button");
+    button.id = BUTTON_ID;
+    button.className = css.button;
+    button.style.cssText =
+      "display:inline-flex;align-items:center;justify-content:center;" +
+      "width:40px;height:40px;padding:8px;border:0;background:none;" +
+      "color:inherit;cursor:pointer;";
+    button.innerHTML =
+      `<span data-sp="icon" class="${css.icon}" style="display:flex;width:100%;height:100%">` +
+      '<div style="width:100%;height:100%;display:block;fill:currentcolor">' +
+      `<svg viewBox="${SHORTS_ICON.viewBox}" width="24" height="24" focusable="false" aria-hidden="true" ` +
+      'style="pointer-events:none;display:inherit;width:100%;height:100%">' +
+      `<path d="${SHORTS_ICON.path}"></path>` +
+      "</svg></div></span>" +
+      '<span data-sp="rate" style="display:none;align-items:center;justify-content:center;' +
+      `width:100%;height:100%;color:${ACTIVE_COLOR};font:700 12px/1 Roboto,Arial,sans-serif"></span>`;
+    button.addEventListener("click", onToggle);
+    button.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleMenu();
+    });
+
+    wrap.append(button);
+    return markRoot(wrap, "music");
+  }
+
   function getShortsActionHost() {
     const video = getVideo();
     if (!video) return null;
@@ -584,19 +663,14 @@
   }
 
   function ensureButton() {
-    // No button on Music yet: its player is laid out differently and guessing
-    // at the markup is what made the Shorts button land in the wrong place.
-    // Auto-apply, the shortcuts and the popup all work there regardless.
-    if (onMusic()) {
-      const stale = getRoot();
-      if (stale) stale.remove();
-      return;
-    }
+    const music = onMusic();
     const shorts = onShorts();
-    const variant = shorts ? "shorts" : "player";
-    const host = shorts
-      ? getShortsActionHost()
-      : document.querySelector(".ytp-right-controls");
+    const variant = music ? "music" : shorts ? "shorts" : "player";
+    const host = music
+      ? getMusicHost()
+      : shorts
+        ? getShortsActionHost()
+        : document.querySelector(".ytp-right-controls");
     const existing = getRoot();
 
     if (!host) {
@@ -613,7 +687,10 @@
     }
     // In the player bar the button goes first; in the action column it goes
     // last, under the buttons that were already there.
-    if (shorts) {
+    if (music) {
+      // Ahead of the overflow menu, so it reads as part of the same group.
+      host.prepend(buildMusicButton(host));
+    } else if (shorts) {
       const action = buildShortsAction(host);
       const pivot = host.querySelector(":scope > pivot-button-view-model");
       if (pivot) host.insertBefore(action, pivot);
