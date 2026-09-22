@@ -4,6 +4,7 @@
 "use strict";
 
 const Speed = globalThis.SpeedyPlaySpeed;
+const Settings = globalThis.SpeedyPlaySettings;
 const DEFAULTS = { selectedSpeed: 2.0, autoApply: true };
 
 const chipsEl = document.getElementById("chips");
@@ -14,10 +15,8 @@ const nowEl = document.getElementById("now");
 let selectedSpeed = DEFAULTS.selectedSpeed;
 
 function save() {
-  return chrome.storage.local.set({
-    selectedSpeed,
-    autoApply: autoApplyEl.checked,
-  });
+  // The popup can be dismissed at any moment, so nothing here waits.
+  Settings.saveNow({ selectedSpeed, autoApply: autoApplyEl.checked });
 }
 
 function renderChips() {
@@ -91,7 +90,7 @@ function applyCustom() {
 // Settings are read before the chips exist, so a very early click cannot save
 // values that were still at their defaults.
 async function init() {
-  const stored = await chrome.storage.local.get(DEFAULTS);
+  const stored = await Settings.load(DEFAULTS);
   selectedSpeed = Speed.normalise(stored.selectedSpeed, DEFAULTS.selectedSpeed);
   autoApplyEl.checked = stored.autoApply !== false;
   renderChips();
@@ -111,8 +110,8 @@ customEl.addEventListener("keydown", (event) => {
 autoApplyEl.addEventListener("change", save);
 
 // Another surface may change the speed while the popup is open.
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "local" || !changes.selectedSpeed) return;
+Settings.onChange((changes) => {
+  if (!changes.selectedSpeed) return;
   selectedSpeed = Speed.normalise(changes.selectedSpeed.newValue, selectedSpeed);
   sync();
 });

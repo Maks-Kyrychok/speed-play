@@ -5,9 +5,11 @@ through the player's settings menu. Desktop YouTube only.
 
 ## What it does
 
-- Adds a speed-toggle button to the YouTube player controls, next to the
-  built-in ones. Clicking it flips between normal speed and your chosen speed;
-  the icon turns red while the video is sped up.
+- Adds a speed button to the YouTube player controls, next to the built-in
+  ones. Clicking it flips between normal speed and your chosen speed, and it
+  shows the current rate in place of its icon while the video is sped up.
+- Right-clicking that button opens a speed menu in the player itself, so
+  picking a specific speed does not mean reaching for the toolbar.
 - Works on Shorts too, where it joins the like/dislike/comment/share column as
   a matching round button with the current speed underneath.
 - Applies your chosen speed automatically to every new video, if you want it to.
@@ -54,6 +56,7 @@ cd src && zip -r ../speedyplay.zip . -x '.*' && cd ..
 | --- | --- |
 | `src/manifest.json` | Extension manifest (MV3) |
 | `src/speed.js` | Speed validation and formatting, shared by the two below |
+| `src/settings.js` | Synced storage with debounced writes, shared likewise |
 | `src/content.js` | Player button, Shorts button, auto-apply and the indicator |
 | `src/background.js` | Service worker relaying the keyboard shortcuts |
 | `src/popup.html` / `.css` / `.js` | Settings popup |
@@ -61,7 +64,13 @@ cd src && zip -r ../speedyplay.zip . -x '.*' && cd ..
 | `assets/make-icons.py` | Renders that master to `src/icons/` and the store icon |
 | `assets/store-icon-128.png` | Listing icon: 96x96 of artwork on a 128x128 canvas |
 
-Settings live in `chrome.storage.local` under `selectedSpeed` and `autoApply`.
+Settings live in `chrome.storage.sync` under `selectedSpeed` and `autoApply`,
+so they follow the user to their other machines; sync needs no permission
+beyond the `storage` one local already required. Its write quota does mean
+writes are debounced, since stepping with the keyboard would otherwise write
+on every keypress. Settings saved by version 1.1 and earlier are moved out of
+local storage once, when the extension updates.
+
 Stepping writes back to `selectedSpeed`, so the speed the button toggles to is
 always the last one used.
 The popup saves every change straight away, and the content script picks it up

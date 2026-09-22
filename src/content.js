@@ -6,6 +6,7 @@
   "use strict";
 
   const Speed = globalThis.SpeedyPlaySpeed;
+  const Settings = globalThis.SpeedyPlaySettings;
 
   const BUTTON_ID = "speedyplay-button";
   const LABEL_ID = "speedyplay-label";
@@ -37,35 +38,28 @@
    * Settings
    * ------------------------------------------------------------------ */
 
-  function loadSettings() {
+  async function loadSettings() {
     try {
-      chrome.storage.local.get(DEFAULTS, (stored) => {
-        if (chrome.runtime.lastError) return;
-        Object.assign(settings, stored);
-        // A speed written by an older version, or by hand, may be out of range.
-        settings.selectedSpeed = Speed.normalise(stored.selectedSpeed, DEFAULTS.selectedSpeed);
-        settingsLoaded = true;
-        beginReassert();
-        syncButton();
-        maybeAutoApply();
-      });
+      const stored = await Settings.load(DEFAULTS);
+      Object.assign(settings, stored);
+      // A speed written by an older version, or by hand, may be out of range.
+      settings.selectedSpeed = Speed.normalise(stored.selectedSpeed, DEFAULTS.selectedSpeed);
+      settingsLoaded = true;
+      beginReassert();
+      syncButton();
+      maybeAutoApply();
     } catch {
       // Extension context gone (reload/update); keep the defaults.
     }
   }
 
-  try {
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== "local") return;
-      if (changes.selectedSpeed) {
-        settings.selectedSpeed = Speed.normalise(changes.selectedSpeed.newValue, settings.selectedSpeed);
-      }
-      if (changes.autoApply) settings.autoApply = changes.autoApply.newValue;
-      syncButton();
-    });
-  } catch {
-    // No storage events available; the popup will still work.
-  }
+  Settings.onChange((changes) => {
+    if (changes.selectedSpeed) {
+      settings.selectedSpeed = Speed.normalise(changes.selectedSpeed.newValue, settings.selectedSpeed);
+    }
+    if (changes.autoApply) settings.autoApply = changes.autoApply.newValue;
+    syncButton();
+  });
 
   /* ------------------------------------------------------------------ *
    * Player access
@@ -148,11 +142,8 @@
 
   function persistSpeed(speed) {
     settings.selectedSpeed = speed;
-    try {
-      chrome.storage.local.set({ selectedSpeed: speed });
-    } catch {
-      // Extension context gone; the speed still applies to this page.
-    }
+    // Debounced: holding a shortcut would otherwise write on every keypress.
+    Settings.save({ selectedSpeed: speed });
   }
 
   // Nudges the video that is playing, rather than the saved speed, so holding
@@ -168,6 +159,123 @@
     // on 1x is the exception: it would leave the toggle with nothing to do.
     if (next !== NORMAL_SPEED) persistSpeed(next);
   }
+
+  /* ------------------------------------------------------------------ *
+   * Speed menu on the player button
+   * ------------------------------------------------------------------ */
+
+  const MENU_ID = "speedyplay-menu";
+
+  // 1x belongs here even though it is not a preset: it is the speed people
+  // most often want back.
+  const MENU_SPEEDS = [...Speed.PRESETS, Speed.NORMAL].sort((a, b) => a - b);
+
+  const MENU_CSS =
+    "position:absolute;z-index:2100;min-width:96px;padding:6px 0;" +
+    "border-radius:12px;background:rgba(28,28,28,0.95);" +
+    "font:13px/1 Roboto,Arial,sans-serif;color:#eee;" +
+    "box-shadow:0 4px 32px rgba(0,0,0,0.4);";
+
+  const ITEM_CSS =
+    "display:flex;align-items:center;gap:8px;padding:9px 16px;" +
+    "cursor:pointer;white-space:nowrap;";
+
+  function closeMenu() {
+    const menu = document.getElementById(MENU_ID);
+    if (menu) menu.remove();
+  }
+
+  const menuIsOpen = () => !!document.getElementById(MENU_ID);
+
+  // An explicit pick applies now and becomes what the button toggles to.
+  // 1x is the exception, as it would leave the toggle with nothing to do.
+  function chooseSpeed(speed) {
+    const video = getVideo();
+    if (!video || isAdShowing()) return;
+    reassertUntil = 0;
+    setSpeed(video, speed);
+    showToast(formatRate(speed));
+    if (speed !== NORMAL_SPEED) persistSpeed(speed);
+  }
+
+  function buildMenu(current) {
+    const menu = document.createElement("div");
+    menu.id = MENU_ID;
+    menu.style.cssText = MENU_CSS;
+    for (const speed of MENU_SPEEDS) {
+      const item = document.createElement("div");
+      item.style.cssText = ITEM_CSS;
+      const selected = speed === current;
+      if (selected) item.style.color = ACTIVE_COLOR;
+      // A fixed-width tick keeps every label starting at the same x.
+      item.innerHTML =
+        `<span style="width:12px">${selected ? "\u2713" : ""}</span>` +
+        `<span>${formatRate(speed)}</span>`;
+      item.addEventListener("mouseenter", () => {
+        item.style.background = "rgba(255,255,255,0.1)";
+      });
+      item.addEventListener("mouseleave", () => {
+        item.style.background = "";
+      });
+      item.addEventListener("click", (event) => {
+        event.stopPropagation();
+        chooseSpeed(speed);
+        closeMenu();
+      });
+      menu.append(item);
+    }
+    return menu;
+  }
+
+  // Positioned against the player rather than the viewport, so it travels with
+  // the player into fullscreen instead of being left behind on the body.
+  function placeMenu(menu, root, button) {
+    const rootBox = root.getBoundingClientRect();
+    const buttonBox = button.getBoundingClientRect();
+    const menuBox = menu.getBoundingClientRect();
+
+    const centred = buttonBox.left - rootBox.left + buttonBox.width / 2 - menuBox.width / 2;
+    const margin = 8;
+    const maxLeft = rootBox.width - menuBox.width - margin;
+    menu.style.left = `${Math.max(margin, Math.min(centred, maxLeft))}px`;
+    menu.style.bottom = `${rootBox.bottom - buttonBox.top + margin}px`;
+  }
+
+  function toggleMenu() {
+    if (menuIsOpen()) {
+      closeMenu();
+      return;
+    }
+    const root = getPlayerRoot();
+    const button = document.getElementById(BUTTON_ID);
+    if (!root || !button) return;
+
+    const video = getVideo();
+    const menu = buildMenu(video ? Speed.round(video.playbackRate) : NORMAL_SPEED);
+    if (getComputedStyle(root).position === "static") root.style.position = "relative";
+    root.appendChild(menu);
+    // Measured only once it is in the document, or it has no width yet.
+    placeMenu(menu, root, button);
+  }
+
+  // Capture, so a click anywhere closes it before the page acts on that click.
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (!menuIsOpen()) return;
+      if (event.target.closest(`#${MENU_ID}, #${BUTTON_ID}`)) return;
+      closeMenu();
+    },
+    true,
+  );
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape" && menuIsOpen()) closeMenu();
+    },
+    true,
+  );
 
   /* ------------------------------------------------------------------ *
    * On-screen indicator
@@ -262,8 +370,19 @@
     // neighbouring YouTube controls.
     button.className = "ytp-button";
     button.style.cssText = PLAYER_BUTTON_CSS;
-    button.innerHTML = CHEVRONS_SVG;
+    // Both children are built once and shown in turn, rather than rewriting
+    // the markup on every sync, which runs whenever the page mutates.
+    button.innerHTML =
+      `<span data-sp="icon" style="display:flex;width:100%;height:100%">${CHEVRONS_SVG}</span>` +
+      '<span data-sp="rate" style="display:none;color:' + ACTIVE_COLOR + ';' +
+      "font:700 12px/1 Roboto,Arial,sans-serif\"></span>";
     button.addEventListener("click", onToggle);
+    button.addEventListener("contextmenu", (event) => {
+      // Otherwise YouTube's own context menu covers the player.
+      event.preventDefault();
+      event.stopPropagation();
+      toggleMenu();
+    });
     return markRoot(button, "player");
   }
 
@@ -372,6 +491,16 @@
     // while the video runs at normal speed.
     const path = button.querySelector("path");
     if (path) path.style.fill = active ? ACTIVE_COLOR : "";
+
+    // On the player bar the icon gives way to the number, so the speed can be
+    // read at a glance instead of only from the tooltip.
+    const icon = button.querySelector('[data-sp="icon"]');
+    const text = button.querySelector('[data-sp="rate"]');
+    if (icon && text) {
+      icon.style.display = active ? "none" : "flex";
+      text.style.display = active ? "flex" : "none";
+      text.textContent = formatRate(rate);
+    }
 
     const label = document.getElementById(LABEL_ID);
     if (label) {
